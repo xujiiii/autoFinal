@@ -1,0 +1,114 @@
+Guidance: All the command should run in the folder of each pipeline, like Pipe/P0...
+
+P1: ok
+python download_pdbs.py --structsCSV ../../input_data/f1_in/structure-matching-IPR011009_updated.tsv --out ../../input_data/PDBs
+
+python build_v91_dataset.py --manifest-v9 ../../input_data/f1_in/manifest_v9.csv --addendum-merged-csv ../../input_data/f1_in/v9_addendum_merged.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f1_out/
+
+P2: ok
+python map_v8_conserved_by_foldmason_chunks.py --manifest-csv ../../output_data/f1_out/manifest_v91.csv --foldmason60-conserved ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f2_out/
+
+P3: ok
+tmux new -s pipe3
+
+python train_v9_ca_only.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --out ../../output_data/f3_out/ --max-cycles 8 --epochs-per-cycle 32 --batch-size 8
+
+tmux attach -t pipe3
+
+python rename_best_ckpt.py --folder ../../output_data/f3_out/
+
+P4: Use the check point from Pipeline 3, ok
+
+python embed_v9_ca_only.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --manifest-csv ../../output_data/f1_out/manifest_v91.csv --checkpoint ../../output_data/f3_out/best.ckpt --train-idx ../../output_data/f3_out/train_idx.txt --test-idx ../../output_data/f3_out/test_idx.txt --out ../../output_data/f4_out/
+
+
+P5: ok
+python predict_v9_lgbm_shap.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f5_out/
+
+P6:  ok, wait to the final one to finish
+First one run
+
+tmux attach -t pipe6
+
+`eval_v9_fi_extended.py` → 
+python eval_v9_fi_extended.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f6_out/
+
+`fi_methods_agreement.py`,
+python fi_methods_agreement.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
+
+fi_methods_deeper.py
+python fi_methods_deeper.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
+
+`compare_ca_vs_minatom.py`
+python compare_ca_vs_minatom.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f6_out/
+
+P7: ok
+v9_per_drug_latent.py`, 
+python v9_per_drug_latent.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
+
+v9_drug_off_target.py`,
+python v9_drug_off_target.py --full-kinome ../../output_data/f4_out/v9_latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
+
+v9_drug_offtarget_vs_literature.py`
+python v9_drug_offtarget_vs_literature.py --off-target-csv ../../output_data/f7_out/per_drug_off_target_table.csv --out-dir ../../output_data/f7_out/
+
+v9_selectivity_analysis.py
+python v9_selectivity_analysis.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f7_out/
+
+P8: ok
+figure_map2k1_phospho_example.py
+python figure_map2k1_phospho_example.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out-prefix ../../output_data/f8_out/f8
+
+P9: ok
+collect_v9_mutations.py` → 
+python collect_v9_mutations.py --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --out ../../output_data/f9_out/f9output.csv
+
+`enumerate_v9_mutations.py` →
+python enumerate_v9_mutations.py --mutations-csv ../../output_data/f9_out/f9output.csv --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f9_out/
+
+`test_mutation_significance.py` → 
+python test_mutation_significance.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --mutations-csv ../../output_data/f9_out/f9output.csv --mutation-list-csv ../../output_data/f9_out/v9_mutation_validation_skeleton.csv --out ../../output_data/f9_out/
+
+To download the oncokb file, please get the token from oncokb website and then run the command with yoour real token.
+ONCOKB_TOKEN="your_oncokb_bearer_token" ./download_oncokb_static.sh ../../input_data/f9_in/oncokb/
+
+Sometimes the token does not have enough right to download the data since oncokb dataset have a strict limitation of downloading by api,
+in this case, please go to website https://www.oncokb.org/actionable-genes and download the data munally,
+then save it to input_data/f9_in/oncokb/allActionableVariants.tsv
+
+`join_oncokb_to_skeleton.py`
+python join_oncokb_to_skeleton.py --skeleton-csv ../../output_data/f9_out/v9_mutation_validation_skeleton.csv --oncokb-static-dir ../../input_data/f9_in/oncokb/ --out ../../output_data/f9_out/join_oncokb_out.csv
+
+
+P10: ok
+python v9_extended_analyses.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --checkpoint ../../output_data/f3_out/best.ckpt --manifest-csv ../../output_data/f1_out/manifest_v91.csv --mutations-csv ../../output_data/f9_out/f9output.csv --out ../../output_data/f10_out/
+
+P11:ok, may using code to automatically do the pipeline to all the file
+./download_clayton_braf_md.sh ../../input_data/f11_in/download/
+
+`project_braf_md_to_v9.py`: Change the file to use different system,prmtop and trajectories files to do the analysis.
+python project_braf_md_to_v9.py --prmtop ../../input_data/f11_in/download/prmtop/BrafDimer_apo.prmtop --trajectory ../../input_data/f11_in/download/trajectories/BrafDimer_apo_run1.nc --system BrafDimer_apo --checkpoint ../../output_data/f3_out/best.ckpt --out ../../output_data/f11_out/BrafDimer_apo.csv --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb
+
+P12: ok
+train_v9_variant.py
+python train_v9_variant.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --manifest ../../output_data/f1_out/manifest_v91.csv --out ../../output_data/f12_out/
+
+          -3.1907e+01,  1.1444e-05]]])
+Done. best_valid=0.9256
+
+tmux attach -t pipe12
+
+evaluate_v9_variants.py
+
+python evaluate_v9_variants.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --manifest-csv ../../output_data/f1_out/manifest_v91.csv --run-dirs ../../output_data/f12_out/ --labels pipe12 --out ../../output_data/f12_out/
+
+  return _ForkingPickler.loads(res)
+  EV=100.0%  median RMSD=0.90 Å  DFG bal=0.332  dihedral bal=0.179  AMI=0.276
+
+========== SUMMARY ==========
+   run preprocess  batch_size  seed  gene_group_split  variance_explained_test  rmsd_median  rmsd_p90
+pipe12     center          16    25             False                99.954834     0.897665  2.522118
+
+========== PROBES ==========
+   run  DFG_balanced_acc  DFG_raw_acc  dihedral_balanced_acc  dihedral_raw_acc  dihedral_AMI
+pipe12          0.332132     0.917081               0.179261          0.691071      0.276114
