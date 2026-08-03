@@ -88,6 +88,7 @@ dependencies:
   - harfbuzz=6.0.0=h8e241bc_0
   - hdf4=4.2.15=h9772cbc_5
   - hdf5=1.12.2=nompi_h4df4325_101
+  - h5py
   - hdf5-1146=1.14.6=2
   - hpack=4.1.0=pyhd8ed1ab_0
   - httpcore=1.0.9=pyh29332c3_0
