@@ -108,7 +108,7 @@ def main() -> None:
     ap.add_argument("--ref-key", default="6UANC")
     ap.add_argument("--ref-dfg", type=int, default=594)
     ap.add_argument("--ref-ape", type=int, default=623)
-    ap.add_argument("--foldmason", default="/home/edina/foldmason/bin/foldmason")
+    ap.add_argument("--foldmason", required=True, type=Path)
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--chunk-size", type=int, default=100)
     ap.add_argument("--threads", type=int, default=8)
