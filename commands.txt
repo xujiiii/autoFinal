@@ -1,5 +1,9 @@
 Guidance: All the command should run in the folder of each pipeline, like Pipe/P0...
 
+Rebuild the environment
+
+conda env create -f environment.yml -n test_v1
+
 P1: ok
 python download_pdbs.py --structsCSV ../../input_data/f1_in/structure-matching-IPR011009_updated.tsv --out ../../input_data/PDBs
 
