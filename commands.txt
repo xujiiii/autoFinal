@@ -10,9 +10,9 @@ python download_pdbs.py --structsCSV ../../input_data/f1_in/structure-matching-I
 python build_v91_dataset.py --manifest-v9 ../../input_data/f1_in/manifest_v9.csv --addendum-merged-csv ../../input_data/f1_in/v9_addendum_merged.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f1_out/
 
 P2: ok
-./install_foldmason.sh ../../input_data/f2_in/foldmason
+./install_foldmason.sh ../../input_data/f2_in
 
-python map_v8_conserved_by_foldmason_chunks.py --manifest-csv ../../output_data/f1_out/manifest_v91.csv --foldmason60-conserved ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f2_out/ --foldmason ../../input_data/f2_in/foldmason
+python map_v8_conserved_by_foldmason_chunks.py --manifest-csv ../../output_data/f1_out/manifest_v91.csv --foldmason60-conserved ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f2_out/ --foldmason ../../input_data/f2_in/foldmason/bin/foldmason
 
 P3: ok
 tmux new -s pipe3
