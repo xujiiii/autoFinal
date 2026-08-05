@@ -184,7 +184,7 @@ def build_addendum_row(row, pdb_dir: Path, ref_specs, ref_flank,
         return None, {"chain_key": chain_key, **{
             k: v for k, v in r.items() if k not in ("ca", "anchors")}}
     ca = r["ca"].astype(np.float32)
-    ca = ca - ca.mean(axis=0)  # match published addendum PDB convention
+    # ca = ca - ca.mean(axis=0)  # match published addendum PDB convention
     manifest = {
         "chain_key": chain_key,
         "pdb": chain_key[:4],
