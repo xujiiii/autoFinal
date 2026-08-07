@@ -271,6 +271,7 @@ def plot_within_vs_between(within_df: pd.DataFrame,
 
     # Between-method: SHAP ↔ everything else, averaged over z0, z1
     pa = (pair_agreement.set_index(["method_a", "method_b"]))
+    pa = pa.sort_index()
     for m in [mm for mm, _ in METHODS if mm != "lgbm_shap_meanabs"]:
         key = ("lgbm_shap_meanabs", m) if (
             ("lgbm_shap_meanabs", m) in pa.index) else (m, "lgbm_shap_meanabs")
@@ -366,7 +367,13 @@ def main():
     clust_df.to_csv(args.out / "fi_cluster_level_agreement.csv", index=False)
 
     from glob import glob
-    pa_files = sorted(glob(str(args.pair_agreement_csv_glob)))
+    import os
+    # pa_files = sorted(glob(str(args.pair_agreement_csv_glob)))
+    # pa_files = sorted(glob(str(args.out)))
+    pattern = os.path.join(str(args.out), "fi_method_agreement_z?.csv")
+
+    # 匹配并排序
+    pa_files = sorted(glob(pattern))
     if pa_files:
         pair_agreement = pd.concat([pd.read_csv(p) for p in pa_files],
                                     ignore_index=True)
