@@ -364,8 +364,7 @@ def main():
         fig, axes = plt.subplots(3, 3, figsize=(12, 9))
         for k, fi in enumerate(top_idxs):
             ax = axes[k // 3, k % 3]
-            for cls, color in [("DFGin", "#315f8e"), ("DFGout", "#c0504d"),
-                               ("DFGinter", "#6ACC64")]:
+            for cls, color in [("DFGin", "#315f8e"), ("DFGout", "#c0504d")]:
                 m = (dfg_labels == cls)
                 if m.sum() == 0: continue
                 ax.hist(X[m, fi], bins=40, alpha=0.55, density=True,
@@ -385,6 +384,9 @@ def main():
     # ---------- Quantitative FI quality: top-N → DFG classifier ----------
     print("\nTop-N feature DFG-class classifier")
     from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+
+
     from sklearn.metrics import balanced_accuracy_score
     valid = (dfg_labels != "None") & (dfg_labels != "")
     Xv = X[valid]; yv = dfg_labels[valid]
@@ -406,7 +408,12 @@ def main():
     for N in Ns:
         for method_name, imp in combined.items():
             top = np.argsort(-imp)[:N]
-            clf = LogisticRegression(max_iter=1000, n_jobs=-1)
+        
+            clf = make_pipeline(
+                StandardScaler(),
+                LogisticRegression(max_iter=2000, n_jobs=-1)
+            )
+        
             clf.fit(X[tr_v][:, top], dfg_labels[tr_v])
             yhat = clf.predict(X[te_v][:, top])
             bal = balanced_accuracy_score(dfg_labels[te_v], yhat)
