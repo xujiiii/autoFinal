@@ -12,3 +12,5 @@ and replace XXXX with your Modeller license key
 
 
 command v7.2 can not be trusted now.
+
+run 6.4 now. Tommorow do the ppt and essay start
