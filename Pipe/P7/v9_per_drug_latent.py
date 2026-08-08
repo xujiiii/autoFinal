@@ -43,75 +43,245 @@ from matplotlib import rcParams
 # either by exact name match or by IUPAC structure match.  CCDs in the
 # project's verification log that did NOT match the expected drug
 # (BAY, XAV, TFC, PB2, 9YR, 6S5, 02V, AP5, DJK, EX9, CH7) are excluded.
-DRUG_MAP: dict[str, dict] = {
+import re
+from typing import Dict, List, Optional
+import requests
+
+# 1. 扩展且精准的字典映射（覆盖所有已知激酶抑制剂、辅因子与实验对照）
+# 格式: CCD: (Short_Name, Class, Colour, Tier)
+KNOWN_DRUG_METADATA = {
     # ---- FDA-approved Type-2 (DFG-out binders) ----
-    "STI": {"name": "Imatinib",     "class": "Type 2",
-            "colour": "#C00000", "tier": "FDA"},
-    "NIL": {"name": "Nilotinib",    "class": "Type 2",
-            "colour": "#B71C1C", "tier": "FDA"},
-    "0LI": {"name": "Ponatinib",    "class": "Type 2",
-            "colour": "#D32F2F", "tier": "FDA"},
-    "B49": {"name": "Sunitinib",    "class": "Type 2",
-            "colour": "#9C27B0", "tier": "FDA"},
-    "BAX": {"name": "Sorafenib",    "class": "Type 2",
-            "colour": "#E65100", "tier": "FDA"},
-
-    # ---- FDA-approved Type-1.5 (DFG-in but inactive-helix-shifted) ----
-    "032": {"name": "Vemurafenib",  "class": "Type 1.5",
-            "colour": "#5D4037", "tier": "FDA"},
-    "P06": {"name": "Dabrafenib",   "class": "Type 1.5",
-            "colour": "#795548", "tier": "FDA"},
-
-    # ---- FDA-approved Type-1 (DFG-in binders) ----
-    "1N1": {"name": "Dasatinib",    "class": "Type 1",
-            "colour": "#1976D2", "tier": "FDA"},
-    "DB8": {"name": "Bosutinib",    "class": "Type 1",
-            "colour": "#00838F", "tier": "FDA"},
-    "RXT": {"name": "Ruxolitinib",  "class": "Type 1",
-            "colour": "#FF9800", "tier": "FDA"},
-    "AQ4": {"name": "Erlotinib",    "class": "Type 1",
-            "colour": "#0277BD", "tier": "FDA"},
-    "IRE": {"name": "Gefitinib",    "class": "Type 1",
-            "colour": "#01579B", "tier": "FDA"},
-    "FMM": {"name": "Lapatinib",    "class": "Type 1",
-            "colour": "#283593", "tier": "FDA"},
-    "VGH": {"name": "Crizotinib",   "class": "Type 1",
-            "colour": "#512DA8", "tier": "FDA"},
-    "0WN": {"name": "Afatinib",     "class": "Type 1 covalent",
-            "colour": "#311B92", "tier": "FDA"},
-    "1E8": {"name": "Ibrutinib",    "class": "Type 1 covalent",
-            "colour": "#4A148C", "tier": "FDA"},
-    "MI1": {"name": "Tofacitinib",  "class": "Type 1",
-            "colour": "#006064", "tier": "FDA"},
-    "YY3": {"name": "Osimertinib",  "class": "Type 1 covalent",
-            "colour": "#37474F", "tier": "FDA"},
-    "OZS": {"name": "Acalabrutinib", "class": "Type 1 covalent",
-            "colour": "#263238", "tier": "FDA"},
-    "4MK": {"name": "Ceritinib",    "class": "Type 1",
-            "colour": "#3F51B5", "tier": "FDA"},
-    "LO0": {"name": "Entrectinib",  "class": "Type 1",
-            "colour": "#1A237E", "tier": "FDA"},
-    "LQQ": {"name": "Palbociclib",  "class": "Type 1",
-            "colour": "#FF5722", "tier": "FDA"},
-
-    # ---- FDA-approved Allosteric (MEK1/2 inhibitors) ----
-    "TGM": {"name": "Trametinib",   "class": "Allosteric MEK",
-            "colour": "#F06292", "tier": "FDA"},
-    "EUI": {"name": "Cobimetinib",  "class": "Allosteric MEK",
-            "colour": "#EC407A", "tier": "FDA"},
-
-    # ---- Lab pan-kinase reference ----
-    "STU": {"name": "Staurosporine", "class": "Type 1 (lab)",
-            "colour": "#7B1FA2", "tier": "Lab"},
-
-    # ---- Cofactor reference ----
-    "ANP": {"name": "AMP-PNP",       "class": "cofactor",
-            "colour": "#388E3C", "tier": "Cofactor"},
-    "ATP": {"name": "ATP",           "class": "cofactor",
-            "colour": "#558B2F", "tier": "Cofactor"},
-    "ADP": {"name": "ADP",           "class": "cofactor",
-            "colour": "#8BC34A", "tier": "Cofactor"},
+    "STI": ("Imatinib", "Type 2", "#C00000", "FDA"),
+    "NIL": ("Nilotinib", "Type 2", "#B71C1C", "FDA"),
+    "0LI": ("Ponatinib", "Type 2", "#D32F2F", "FDA"),
+    "B49": ("Sunitinib", "Type 2", "#9C27B0", "FDA"),
+    "BAX": ("Sorafenib", "Type 2", "#E65100", "FDA"),
+    # ---- FDA-approved Type-1.5 (DFG-in, inactive-helix) ----
+    "032": ("Vemurafenib", "Type 1.5", "#5D4037", "FDA"),
+    "P06": ("Dabrafenib", "Type 1.5", "#795548", "FDA"),
+    # ---- FDA-approved Type-1 & Type-1 Covalent ----
+    "1N1": ("Dasatinib", "Type 1", "#1976D2", "FDA"),
+    "DB8": ("Bosutinib", "Type 1", "#00838F", "FDA"),
+    "RXT": ("Ruxolitinib", "Type 1", "#FF9800", "FDA"),
+    "AQ4": ("Erlotinib", "Type 1", "#0277BD", "FDA"),
+    "IRE": ("Gefitinib", "Type 1", "#01579B", "FDA"),
+    "FMM": ("Lapatinib", "Type 1", "#283593", "FDA"),
+    "VGH": ("Crizotinib", "Type 1", "#512DA8", "FDA"),
+    "0WN": ("Afatinib", "Type 1 covalent", "#311B92", "FDA"),
+    "1E8": ("Ibrutinib", "Type 1 covalent", "#4A148C", "FDA"),
+    "MI1": ("Tofacitinib", "Type 1", "#006064", "FDA"),
+    "YY3": ("Osimertinib", "Type 1 covalent", "#37474F", "FDA"),
+    "OZS": ("Acalabrutinib", "Type 1 covalent", "#263238", "FDA"),
+    "4MK": ("Ceritinib", "Type 1", "#3F51B5", "FDA"),
+    "LO0": ("Entrectinib", "Type 1", "#1A237E", "FDA"),
+    "LQQ": ("Palbociclib", "Type 1", "#FF5722", "FDA"),
+    # ---- FDA-approved Allosteric MEK ----
+    "TGM": ("Trametinib", "Allosteric MEK", "#F06292", "FDA"),
+    "EUI": ("Cobimetinib", "Allosteric MEK", "#EC407A", "FDA"),
+    # ---- Lab reference & Cofactors ----
+    "STU": ("Staurosporine", "Type 1 (lab)", "#7B1FA2", "Lab"),
+    "ANP": ("AMP-PNP", "cofactor", "#388E3C", "Cofactor"),
+    "ATP": ("ATP", "cofactor", "#558B2F", "Cofactor"),
+    "ADP": ("ADP", "cofactor", "#8BC34A", "Cofactor"),
 }
+
+# 常见盐类、水合物及拉脱维亚/拉丁语后缀的正则表达式（用于文本清洗）
+SUFFIX_CLEAN_REGEX = re.compile(
+    r"\b(hydrochloride|ditosylate|isethionate|sulfate|mesylate|besylate|maleate|tartrate|succinate|phosphate|sodium|disodium|calcium|potassium|anhydrous|monohydrate|dihydrate|trihydrate|hydrate)\b",
+    re.IGNORECASE,
+)
+
+
+def sanitize_drug_name(raw_name: str) -> str:
+    """去除药物名中的盐类后缀、-um 拉丁后缀以及多余修饰，保持美观短名"""
+    if not raw_name:
+        return raw_name
+
+    # 1. 清理常见盐类/水合物单词
+    name = SUFFIX_CLEAN_REGEX.sub("", raw_name).strip()
+
+    # 2. 清理 INN 拉丁后缀 -um (如 Vemurafenibum -> Vemurafenib, Crizotinibum -> Crizotinib)
+    if name.endswith("um") and len(name) > 5 and not name.lower().endswith("optimum"):
+        name = name[:-2]
+
+    # 清理多余空格或末尾标点
+    return name.strip(" ,.-")
+
+
+def extract_clean_drug_name(
+    ccd_code: str, chem_name: str, synonyms: list
+) -> str:
+    """从 API 结果中提取最适合作图展示的药物通用名"""
+    candidates = []
+
+    # 收集所有的候选名称
+    for syn in synonyms:
+        if isinstance(syn, dict):
+            s_name = syn.get("name", "")
+            p_src = syn.get("provenance_source", "")
+            if s_name:
+                candidates.append((s_name, p_src))
+
+    # 优先使用来自于 DrugBank 的短名
+    for name, src in candidates:
+        if src == "DrugBank":
+            cleaned = sanitize_drug_name(name)
+            if cleaned and len(cleaned) < 30:
+                return cleaned.capitalize()
+
+    # 备用选词逻辑：选择最短非全大写的名称
+    sorted_candidates = sorted(
+        [c[0] for c in candidates], key=lambda x: len(x)
+    )
+    for c_name in sorted_candidates:
+        cleaned = sanitize_drug_name(c_name)
+        if cleaned and not cleaned.isupper() and len(cleaned) < 25:
+            return cleaned.capitalize()
+
+    # 如果同义词列表没能解析出有效通用名，直接清洗化学全名或保留原 CCD
+    cleaned_chem = sanitize_drug_name(chem_name)
+    if cleaned_chem and len(cleaned_chem) < 25:
+        return cleaned_chem.capitalize()
+
+    return ccd_code
+
+
+def build_drug_map(ccd_list: List[str]) -> Dict[str, dict]:
+    """生成与标准 DRUG_MAP 完全一致的字典结构，未知项目降级为 Other"""
+    drug_map = {}
+
+    for ccd in ccd_list:
+        ccd_upper = ccd.strip().upper()
+
+        # 优先选择已知库（确保机制分类、颜色和名字100%精准符合论文标准）
+        if ccd_upper in KNOWN_DRUG_METADATA:
+            name, drug_class, colour, tier = KNOWN_DRUG_METADATA[ccd_upper]
+            drug_map[ccd_upper] = {
+                "name": name,
+                "class": drug_class,
+                "colour": colour,
+                "tier": tier,
+            }
+            continue
+
+        # 未知的 CCD 代码 -> 动态请求 RCSB REST API
+        url = f"https://data.rcsb.org/rest/v1/core/chemcomp/{ccd_upper}"
+        try:
+            resp = requests.get(url, timeout=10)
+            if resp.status_code != 200:
+                # 无法在 RCSB 查询到的项目归为 Other
+                drug_map[ccd_upper] = {
+                    "name": ccd_upper,
+                    "class": "Other",
+                    "colour": "#757575",
+                    "tier": "Unknown",
+                }
+                continue
+
+            data = resp.json()
+            chem_name = data.get("chem_comp", {}).get("name", "")
+            synonyms = data.get("rcsb_chem_comp_synonyms", [])
+
+            # 提取并清洗名字
+            drug_name = extract_clean_drug_name(
+                ccd_upper, chem_name, synonyms
+            )
+
+            # 未知具体构象/机制分类的药物，归为 Other，颜色给中性灰 #757575
+            drug_map[ccd_upper] = {
+                "name": drug_name,
+                "class": "Other",
+                "colour": "#757575",
+                "tier": "Other",
+            }
+
+        except Exception as e:
+            drug_map[ccd_upper] = {
+                "name": ccd_upper,
+                "class": "Other",
+                "colour": "#757575",
+                "tier": "Unknown",
+            }
+
+    return drug_map
+
+ccds=['STI', 'NIL', '0LI', 'B49', 'BAX', '032', 'P06',
+        '1N1', 'DB8', 'RXT', 'AQ4', 'IRE', 'FMM', 
+        'VGH', '0WN', '1E8', 'MI1', 'YY3', 'OZS', '4MK',
+        'LO0', 'LQQ', 'TGM', 'EUI', 'STU', 'ANP', 'ATP', 'ADP']
+
+DRUG_MAP = build_drug_map(ccds)
+
+
+# DRUG_MAP: dict[str, dict] = {
+#     # ---- FDA-approved Type-2 (DFG-out binders) ----
+#     "STI": {"name": "Imatinib",     "class": "Type 2",
+#             "colour": "#C00000", "tier": "FDA"},
+#     "NIL": {"name": "Nilotinib",    "class": "Type 2",
+#             "colour": "#B71C1C", "tier": "FDA"},
+#     "0LI": {"name": "Ponatinib",    "class": "Type 2",
+#             "colour": "#D32F2F", "tier": "FDA"},
+#     "B49": {"name": "Sunitinib",    "class": "Type 2",
+#             "colour": "#9C27B0", "tier": "FDA"},
+#     "BAX": {"name": "Sorafenib",    "class": "Type 2",
+#             "colour": "#E65100", "tier": "FDA"},
+
+#     # ---- FDA-approved Type-1.5 (DFG-in but inactive-helix-shifted) ----
+#     "032": {"name": "Vemurafenib",  "class": "Type 1.5",
+#             "colour": "#5D4037", "tier": "FDA"},
+#     "P06": {"name": "Dabrafenib",   "class": "Type 1.5",
+#             "colour": "#795548", "tier": "FDA"},
+
+#     # ---- FDA-approved Type-1 (DFG-in binders) ----
+#     "1N1": {"name": "Dasatinib",    "class": "Type 1",
+#             "colour": "#1976D2", "tier": "FDA"},
+#     "DB8": {"name": "Bosutinib",    "class": "Type 1",
+#             "colour": "#00838F", "tier": "FDA"},
+#     "RXT": {"name": "Ruxolitinib",  "class": "Type 1",
+#             "colour": "#FF9800", "tier": "FDA"},
+#     "AQ4": {"name": "Erlotinib",    "class": "Type 1",
+#             "colour": "#0277BD", "tier": "FDA"},
+#     "IRE": {"name": "Gefitinib",    "class": "Type 1",
+#             "colour": "#01579B", "tier": "FDA"},
+#     "FMM": {"name": "Lapatinib",    "class": "Type 1",
+#             "colour": "#283593", "tier": "FDA"},
+#     "VGH": {"name": "Crizotinib",   "class": "Type 1",
+#             "colour": "#512DA8", "tier": "FDA"},
+#     "0WN": {"name": "Afatinib",     "class": "Type 1 covalent",
+#             "colour": "#311B92", "tier": "FDA"},
+#     "1E8": {"name": "Ibrutinib",    "class": "Type 1 covalent",
+#             "colour": "#4A148C", "tier": "FDA"},
+#     "MI1": {"name": "Tofacitinib",  "class": "Type 1",
+#             "colour": "#006064", "tier": "FDA"},
+#     "YY3": {"name": "Osimertinib",  "class": "Type 1 covalent",
+#             "colour": "#37474F", "tier": "FDA"},
+#     "OZS": {"name": "Acalabrutinib", "class": "Type 1 covalent",
+#             "colour": "#263238", "tier": "FDA"},
+#     "4MK": {"name": "Ceritinib",    "class": "Type 1",
+#             "colour": "#3F51B5", "tier": "FDA"},
+#     "LO0": {"name": "Entrectinib",  "class": "Type 1",
+#             "colour": "#1A237E", "tier": "FDA"},
+#     "LQQ": {"name": "Palbociclib",  "class": "Type 1",
+#             "colour": "#FF5722", "tier": "FDA"},
+
+#     # ---- FDA-approved Allosteric (MEK1/2 inhibitors) ----
+#     "TGM": {"name": "Trametinib",   "class": "Allosteric MEK",
+#             "colour": "#F06292", "tier": "FDA"},
+#     "EUI": {"name": "Cobimetinib",  "class": "Allosteric MEK",
+#             "colour": "#EC407A", "tier": "FDA"},
+
+#     # ---- Lab pan-kinase reference ----
+#     "STU": {"name": "Staurosporine", "class": "Type 1 (lab)",
+#             "colour": "#7B1FA2", "tier": "Lab"},
+
+#     # ---- Cofactor reference ----
+#     "ANP": {"name": "AMP-PNP",       "class": "cofactor",
+#             "colour": "#388E3C", "tier": "Cofactor"},
+#     "ATP": {"name": "ATP",           "class": "cofactor",
+#             "colour": "#558B2F", "tier": "Cofactor"},
+#     "ADP": {"name": "ADP",           "class": "cofactor",
+#             "colour": "#8BC34A", "tier": "Cofactor"},
+# }
 
 
 def style():
