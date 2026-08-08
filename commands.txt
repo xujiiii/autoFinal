@@ -27,6 +27,9 @@ P4: Use the check point from Pipeline 3, ok
 
 python embed_v9_ca_only.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --manifest-csv ../../output_data/f1_out/manifest_v91.csv --checkpoint ../../output_data/f3_out/best.ckpt --train-idx ../../output_data/f3_out/train_idx.txt --test-idx ../../output_data/f3_out/test_idx.txt --out ../../output_data/f4_out/
 
+python visualisation.py --file ../../output_data/f4_out/landscape_encoded_train_coordinates.csv -o ../../output_data/f4_out/train_lantent.png -t training_latent
+
+python visualisation.py --file ../../output_data/f4_out/landscape_encoded_train_coordinates.csv -o ../../output_data/f4_out/train_lantent.png -t training_latent
 
 P5: ok
 python predict_v9_lgbm_shap.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f5_out/
@@ -55,13 +58,20 @@ python v9_per_drug_latent.py --latent-csv ../../output_data/f4_out/v9_latent_wit
 v9_drug_off_target.py`,
 python v9_drug_off_target.py --full-kinome ../../output_data/f4_out/v9_latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+NO, seems wrong, the data can not be found now,7.3 7.4 暂时存疑
 v9_drug_offtarget_vs_literature.py`
 python v9_drug_offtarget_vs_literature.py --off-target-csv ../../output_data/f7_out/per_drug_off_target_table.csv --out-dir ../../output_data/f7_out/
 
 v9_selectivity_analysis.py
 python v9_selectivity_analysis.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f7_out/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 P8: ok
+
+NO 
+need to check if the information of mutation is true
 figure_map2k1_phospho_example.py
 python figure_map2k1_phospho_example.py --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out-prefix ../../output_data/f8_out/f8
 
