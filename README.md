@@ -9,3 +9,6 @@ Edit /miniforge3/envs/test_v1/lib/modeller-10.8/modlib/modeller/config.py
 and replace XXXX with your Modeller license key
 
 (or set the KEY_MODELLER environment variable before running 'conda install').
+
+
+command v7.2 can not be trusted now.
