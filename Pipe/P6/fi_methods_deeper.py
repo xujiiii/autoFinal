@@ -150,36 +150,60 @@ def within_method_stability(df: pd.DataFrame, target: str,
 # CLUSTER-LEVEL aggregation -- pair-level, but pairs sharing a residue
 # are collapsed into the same group.
 # ---------------------------------------------------------------------------
-def shared_residue_cluster(df: pd.DataFrame) -> np.ndarray:
-    """Assign every pair a cluster id by spectral-style propagation: two
-    pairs are in the same cluster iff they share at least one residue.
-    Cheap proxy for the "feature correlation cluster" you would get
-    from the actual data correlation matrix.
+def shared_residue_cluster(
+    df: pd.DataFrame, max_other_diff: int = 2
+) -> np.ndarray:
+    """Assign every pair a cluster id using Union-Find.
 
-    This is *not* the full feature-correlation cluster (we don't have X
-    here), but it is the cluster you can compute without X: distances
-    involving residue 574, for example, all sit on the same cluster
-    because they share residue 574.  Top-K agreement at the cluster
-    level should be substantially better than at the pair level if the
-    methods agree on which RESIDUES matter."""
+    Two pairs, P1=(r1_a, r1_b) and P2=(r2_a, r2_b), belong to the same cluster iff:
+      1. They share at least ONE exact residue (e.g., r1_a == r2_a).
+      2. The OTHER residues are within `max_other_diff` apart (e.g., |r1_b - r2_b| <= 2).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain 'resi_i' and 'resi_j' columns.
+    max_other_diff : int, optional
+        Maximum allowed sequence difference for the non-shared residue (default 2).
+    """
     n = len(df)
     parent = np.arange(n)
+
     def find(x):
         while parent[x] != x:
             parent[x] = parent[parent[x]]
             x = parent[x]
         return x
+
     def union(a, b):
         ra, rb = find(a), find(b)
-        if ra != rb: parent[ra] = rb
-    by_resi: dict[int, list[int]] = {}
-    for i, (ri, rj) in enumerate(zip(df["resi_i"].values,
-                                       df["resi_j"].values)):
-        for r in (int(ri), int(rj)):
-            by_resi.setdefault(r, []).append(i)
-    for resi, idxs in by_resi.items():
-        for k in range(1, len(idxs)):
-            union(idxs[0], idxs[k])
+        if ra != rb:
+            parent[ra] = rb
+
+    # 1. 建立 "锚定残基 -> 包含 (另一个残基, pair_index)" 的映射表
+    #    这样可以快速只在共享相同残基的 pairs 之间进行比较，效率极高 (O(N))
+    anchor_map: dict[int, list[tuple[int, int]]] = {}
+
+    for idx, (ri, rj) in enumerate(
+        zip(df["resi_i"].values, df["resi_j"].values)
+    ):
+        r1, r2 = int(ri), int(rj)
+        # Pair 由两个残基组成，每一个都可以作为锚定点 (Anchor)
+        anchor_map.setdefault(r1, []).append((r2, idx))
+        anchor_map.setdefault(r2, []).append((r1, idx))
+
+    # 2. 遍历所有锚定残基，检查共享该残基的 pairs 之间，另一个残基差值是否 <= max_other_diff
+    for anchor, entries in anchor_map.items():
+        n_entries = len(entries)
+        for i in range(n_entries):
+            other_i, idx_i = entries[i]
+            for j in range(i + 1, n_entries):
+                other_j, idx_j = entries[j]
+
+                # 共享了 anchor，判断另一个残基的差值是否 <= 2
+                if abs(other_i - other_j) <= max_other_diff:
+                    union(idx_i, idx_j)
+
     return np.array([find(i) for i in range(n)])
 
 
