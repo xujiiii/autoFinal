@@ -357,29 +357,111 @@ def main():
     plt.close(fig)
 
     # ---------- Top-feature class-stratified distance distributions ----------
+    # for tg in ("z0", "z1"):
+    #     sub = fi_df[fi_df["target"] == tg].sort_values(
+    #         "lgbm_shap_meanabs", ascending=False)
+    #     top_idxs = [feature_names.index(f) for f in sub["feature"].head(9)]
+    #     fig, axes = plt.subplots(3, 3, figsize=(12, 9))
+    #     for k, fi in enumerate(top_idxs):
+    #         ax = axes[k // 3, k % 3]
+    #         for cls, color in [("DFGin", "#315f8e"), ("DFGout", "#c0504d")]:
+    #             m = (dfg_labels == cls)
+    #             if m.sum() == 0: continue
+    #             ax.hist(X[m, fi], bins=40, alpha=0.55, density=True,
+    #                     label=f"{cls} (n={m.sum()})", color=color)
+    #         ri, rj = pairs[fi]
+    #         ax.set_xlabel(f"d({ri},{rj}) [Å]")
+    #         ax.set_ylabel("density")
+    #         ax.set_title(f"#{k+1} {ri}-{rj}", fontsize=11)
+    #         if k == 0:
+    #             ax.legend(fontsize=8, frameon=False)
+    #     fig.suptitle(f"Distance distributions for top-9 SHAP features predicting {tg}, "
+    #                  f"stratified by DFG spatial class", fontsize=13)
+    #     fig.tight_layout()
+    #     fig.savefig(args.out / f"top_feature_distance_distributions_{tg}.png")
+    #     plt.close(fig)
+
+
+
     for tg in ("z0", "z1"):
         sub = fi_df[fi_df["target"] == tg].sort_values(
             "lgbm_shap_meanabs", ascending=False)
         top_idxs = [feature_names.index(f) for f in sub["feature"].head(9)]
         fig, axes = plt.subplots(3, 3, figsize=(12, 9))
+        
+        # 预留两个列表用于存放导出的数据
+        raw_export_rows = []
+        hist_density_rows = []
+
         for k, fi in enumerate(top_idxs):
             ax = axes[k // 3, k % 3]
+            ri, rj = pairs[fi]
+            feature_name = f"d({ri},{rj})"
+
             for cls, color in [("DFGin", "#315f8e"), ("DFGout", "#c0504d")]:
                 m = (dfg_labels == cls)
-                if m.sum() == 0: continue
-                ax.hist(X[m, fi], bins=40, alpha=0.55, density=True,
-                        label=f"{cls} (n={m.sum()})", color=color)
-            ri, rj = pairs[fi]
-            ax.set_xlabel(f"d({ri},{rj}) [Å]")
+                if m.sum() == 0: 
+                    continue
+                
+                # 提取当前特征在当前 DFG 构象类下的原始距离数据
+                distances = X[m, fi]
+
+                # 1. 记录原始样本级数据（最适合显著性检验/Hypothesis Testing）
+                for val in distances:
+                    raw_export_rows.append({
+                        "target": tg,
+                        "rank": k + 1,
+                        "feature": feature_name,
+                        "resi_i": ri,
+                        "resi_j": rj,
+                        "dfg_class": cls,
+                        "distance_angstrom": float(val)
+                    })
+
+                # 2. 画图并获取直方图的密度数据 (density & bin_edges)
+                densities, bin_edges, _ = ax.hist(
+                    distances, bins=40, alpha=0.55, density=True,
+                    label=f"{cls} (n={m.sum()})", color=color
+                )
+
+                # 计算每个 Bin 的中心点坐标 (Bin Centers)
+                bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
+
+                # 记录直方图密度坐标数据
+                for bc, den in zip(bin_centers, densities):
+                    hist_density_rows.append({
+                        "target": tg,
+                        "rank": k + 1,
+                        "feature": feature_name,
+                        "resi_i": ri,
+                        "resi_j": rj,
+                        "dfg_class": cls,
+                        "bin_center_d": float(bc),
+                        "density": float(den)
+                    })
+
+            ax.set_xlabel(f"{feature_name} [Å]")
             ax.set_ylabel("density")
             ax.set_title(f"#{k+1} {ri}-{rj}", fontsize=11)
             if k == 0:
                 ax.legend(fontsize=8, frameon=False)
+
         fig.suptitle(f"Distance distributions for top-9 SHAP features predicting {tg}, "
                      f"stratified by DFG spatial class", fontsize=13)
         fig.tight_layout()
         fig.savefig(args.out / f"top_feature_distance_distributions_{tg}.png")
         plt.close(fig)
+
+        # ------------------ 保存数据到 CSV ------------------
+        # 导出 1：原始数据（强烈推荐用此文件做 t-test / Mann-Whitney U / KS-test 显著性检验）
+        pd.DataFrame(raw_export_rows).to_csv(
+            args.out / f"top_feature_raw_distances_{tg}.csv", index=False
+        )
+
+        # 导出 2：直方图曲线密度数据 (d, density)
+        pd.DataFrame(hist_density_rows).to_csv(
+            args.out / f"top_feature_hist_density_{tg}.csv", index=False
+        )
 
     # ---------- Quantitative FI quality: top-N → DFG classifier ----------
     print("\nTop-N feature DFG-class classifier")
