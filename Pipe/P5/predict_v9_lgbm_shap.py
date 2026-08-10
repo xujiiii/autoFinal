@@ -251,7 +251,7 @@ def main():
         axes[j].set_xlabel(f"Actual {name}")
         axes[j].set_ylabel(f"Predicted {name}")
         axes[j].set_title(f"{name}: R² = {r2:.3f}")
-    fig.suptitle("LightGBM predicting v9.1 latent from non-loop conserved distances",
+    fig.suptitle("LightGBM predicting latent from non-loop conserved distances",
                  fontsize=14)
     fig.tight_layout()
     fig.savefig(fig_dir / "lgbm_predicted_vs_actual.png")
