@@ -357,7 +357,7 @@ def main():
         axes[k].bar(all_resis, agg[k], color="#315f8e" if k == 0 else "#c0504d",
                     width=1.0)
         axes[k].set_ylabel(f"Σ |SHAP|  ({name})")
-        axes[k].set_title(f"Per-BRAF-residue summed |SHAP| — predicting {name}")
+        axes[k].set_title(f"Per residue summed |SHAP| — predicting {name}")
     axes[1].set_xlabel("BRAF residue number")
     fig.tight_layout()
     fig.savefig(fig_dir / "lgbm_residue_importance.png")
