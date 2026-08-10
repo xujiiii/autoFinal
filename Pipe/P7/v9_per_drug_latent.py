@@ -439,7 +439,7 @@ def main():
     # All v9 chains as light grey background
     ax.scatter(df["z0"], df["z1"], s=4, alpha=0.10,
                color="0.7", linewidths=0, zorder=1,
-               label=f"all v9 chains (n={len(df):,})")
+               label=f"all chains (n={len(df):,})")
     # Draw drugs in the curated order: cofactors first (back), drugs front.
     order = sorted(summary_plot["ccd"].tolist(),
                    key=lambda c: 0 if DRUG_MAP[c]["tier"] == "Cofactor"
@@ -479,7 +479,7 @@ def main():
                    linewidth=1.5, zorder=5)
     ax.set_xlabel("z0")
     ax.set_ylabel("z1")
-    ax.set_title("Per-drug latent footprints on v9", loc="left")
+    ax.set_title("Per-drug latent footprints on latent space", loc="left")
     ax.legend(loc="upper left", fontsize=8, markerscale=0.9,
               bbox_to_anchor=(1.01, 1.0))
     fig.tight_layout()
@@ -503,7 +503,7 @@ def main():
     ax.set_yticks(range(len(summary_sorted)))
     ax.set_yticklabels(labels, fontsize=10)
     ax.set_xlabel(r"latent dispersion (mean Euclidean distance to centroid)")
-    ax.set_title("Per-drug compactness in v9 latent (lower = tighter)",
+    ax.set_title("Per-drug compactness in latent (lower = tighter)",
                  loc="left")
     fig.tight_layout()
     for ext in ("png", "pdf"):
