@@ -258,14 +258,11 @@ def plot_residue_vs_pair(res_df_all: pd.DataFrame, pair_df_all: pd.DataFrame,
     ax.barh(x - 0.2, df["jaccard_top20"], height=0.4,
              color="#C62828", label="Pair-level top-20")
     ax.barh(x + 0.2, df["jaccard_top10_resi"], height=0.4,
-             color="#1565C0", label="Residue-level top-10 (sites touched)")
+             color="#1565C0", label="Residue-level top-10")
     ax.set_yticks(x); ax.set_yticklabels(df["label"], fontsize=9)
     ax.set_xlabel("Jaccard overlap (z0 + z1 averaged)")
     ax.set_xlim(0, 1)
-    ax.set_title("Pair-level vs residue-level FI agreement\n"
-                  "(higher residue-level = methods agree on which sites\n"
-                  "matter, even when they pick different exact pair "
-                  "representatives)",
+    ax.set_title("Pair-level vs residue-level Jaccard",
                   fontsize=11)
     ax.legend(frameon=False, loc="lower right")
     ax.invert_yaxis()
@@ -343,11 +340,11 @@ def plot_cluster_vs_pair(clust_df_all: pd.DataFrame,
              color="#C62828", label="Raw pair-level top-20")
     ax.barh(x + 0.2, df["jaccard_top20_cluster"], height=0.4,
              color="#2E7D32",
-             label="Cluster-level top-20 (shared-residue groups)")
+             label="Cluster-level top-20")
     ax.set_yticks(x); ax.set_yticklabels(df["label"], fontsize=9)
     ax.set_xlabel("Jaccard overlap (z0 + z1 averaged)")
     ax.set_xlim(0, 1)
-    ax.set_title("Pair-level vs cluster-level FI agreement", fontsize=11)
+    ax.set_title("Pair-level vs cluster-level Jaccard agreement", fontsize=11)
     ax.legend(frameon=False, loc="lower right")
     ax.invert_yaxis()
     fig.tight_layout()
