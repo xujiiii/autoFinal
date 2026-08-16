@@ -27,12 +27,21 @@ P4: Use the check point from Pipeline 3, ok
 
 python embed_v9_ca_only.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --manifest-csv ../../output_data/f1_out/manifest_v91.csv --checkpoint ../../output_data/f3_out/best.ckpt --train-idx ../../output_data/f3_out/train_idx.txt --test-idx ../../output_data/f3_out/test_idx.txt --out ../../output_data/f4_out/
 
-python visualisation.py --file ../../output_data/f4_out/landscape_encoded_train_coordinates.csv -o ../../output_data/f4_out/train_lantent.png -t training_latent
+python compute_reconstruction_error.py --checkpoint ../../output_data/f3_out/best.ckpt  --latent-csv ../../output_data/f4_out/landscape_encoded_test_coordinates.csv  --manifest-csv ../../output_data/f1_out/manifest_v91.csv  --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb  --out-csv ../../output_data/f4_out/reconstruction_error.csv
 
-python visualisation.py --file ../../output_data/f4_out/landscape_encoded_train_coordinates.csv -o ../../output_data/f4_out/train_lantent.png -t training_latent
+
+python visualisation.py --file ../../output_data/f4_out/landscape_encoded_train_coordinates.csv -o ../../output_data/f4_out/train_lantent.pdf -t "Latent Space of Training Dataset"
+
+python visualisation.py --file ../../output_data/f4_out/landscape_encoded_test_coordinates.csv -o ../../output_data/f4_out/test_lantent.pdf -t "Latent Space of Test Dataset"
 
 P5: ok
 python predict_v9_lgbm_shap.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f5_out/
+
+
+python predict_v9_lgbm_shap_v1.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserve
+d_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_wi
+th_labels.csv --out ../../output_data/f5_out/
+
 
 P6:  ok, wait to the final one to finish
 First one run
