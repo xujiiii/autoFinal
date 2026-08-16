@@ -27,17 +27,17 @@ def plot_landscape(csv_path: Path, output_path: Path | None = None, title: str |
         df["0"],
         df["1"],
         c="#2b5c8f",        # 优雅的深蓝色
-        alpha=0.6,          # 半透明度，防止多点重叠遮挡
+        alpha=0.4,          # 半透明度，防止多点重叠遮挡
         edgecolors="none",
         s=25                # 散点大小
     )
 
     # 4. 美化图表细节
-    ax.set_xlabel("$z0$", fontsize=12, fontweight="bold")
-    ax.set_ylabel("$z1$", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Latent vector z0", fontsize=12, fontweight="bold")
+    ax.set_ylabel("Latent vector z1", fontsize=12, fontweight="bold")
     
     chart_title = title if title else f"Latent Space Landscape ({csv_path.name})"
-    ax.set_title(chart_title, fontsize=14, pad=12)
+    ax.set_title(chart_title, fontsize=14, pad=12,fontweight="bold")
 
     ax.grid(True, linestyle="--", alpha=0.3, color="gray")
     ax.spines["top"].set_visible(False)
@@ -49,12 +49,12 @@ def plot_landscape(csv_path: Path, output_path: Path | None = None, title: str |
     if output_path:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(output_path, dpi=300)
-        print(f"图像已成功保存至: {output_path}")
+        print(f"Image save at: {output_path}")
     else:
         # 如果未指定输出路径，自动命名并在当前目录下保存
         default_out = csv_path.parent / f"{csv_path.stem}_plot.png"
         plt.savefig(default_out, dpi=300)
-        print(f"图像已保存至默认路径: {default_out}")
+        print(f"Image save at: {default_out}")
 
 
 def main():
