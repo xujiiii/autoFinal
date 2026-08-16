@@ -146,9 +146,8 @@ def main():
     MA = MolearnAnalysis()
     MA.set_network(net)
 
-    # checkpoint_suffix = 'cleaned_noOutlier_11_checkpoint_newsplit'
-    # train_file = f"train_model_indices_{checkpoint_suffix}.txt"
-    # test_file = f"test_model_indices_{checkpoint_suffix}.txt"
+    MA.batch_size = 8
+    MA.processes = 4
 
     train_file = args.trainidx
     test_file = args.testidx
@@ -221,10 +220,57 @@ def main():
                     pdb_line = f"{'ATOM':<6}{atom_serial:>5} {atom_name:^4}{res_name:>4} {chain_id}{res_seq:>4}    {x:8.3f}{y:8.3f}{z:8.3f}{occupancy:6.2f}{b_factor:6.2f}          {element:>2}"
                     f.write(pdb_line + '\n')
                     
-                    
-    MA.batch_size = 8
-    MA.processes = 4
 
+    directory_name = out/'Results/run_trial_BRAFActivationLoop_postalign_cleaned_noOutlier_11_checkpoint_newsplit/decoded_train'
+    # Create the output directory if it doesn't exist
+    ifnotmake(directory_name)
+
+    # Get latent coordinates from the trained model (2D latent space for training set)
+    latent_coords = MA.get_encoded('training') 
+
+    print(latent_coords)
+
+    # Generate reconstructed 3D coordinates from the latent coordinates
+    crd_ref = MA.generate(latent_coords.numpy().reshape(1, len(latent_coords), 2))
+
+    # Load the original multi-model structure (combined.pdb) as a trajectory
+    u = mda.Universe(args.combined_pdb)
+
+    # For each structure in the training set
+    for i, idx in enumerate(train_indices):
+        coords = crd_ref[i]             # Get reconstructed coordinates
+        u.trajectory[idx]               # Switch to the correct frame in the trajectory
+
+        mol = u.select_atoms("name CA")  # Select C-alpha atoms only
+        mol.positions = coords           # Replace coordinates with reconstructed ones
+
+        mol.write(os.path.join(directory_name, f"s{i}.pdb")) 
+    
+    
+    
+    """
+    Apply the same function to the test dataset as used for training.
+    """
+    directory_name = out/'Results/run_trial_BRAFActivationLoop_postalign_cleaned_noOutlier_11_checkpoint_newsplit/decoded_test'
+
+    ifnotmake(directory_name)
+
+    latent_coords = MA.get_encoded('test') 
+
+    print(latent_coords)
+
+    crd_ref = MA.generate(latent_coords.numpy().reshape(1, len(latent_coords), 2))
+
+    u = mda.Universe(args.combined_pdb)
+
+    for i, idx in enumerate(test_indices):
+        coords = crd_ref[i]             
+        u.trajectory[idx]             
+
+        mol = u.select_atoms("name CA")  
+        mol.positions = coords       
+
+        mol.write(os.path.join(directory_name, f"s{i}.pdb")) 
 
     import pandas as pd
 
