@@ -23,6 +23,9 @@ tmux attach -t pipe3
 
 python rename_best_ckpt.py --folder ../../output_data/f3_out/
 
+python construction_error.py --checkpoint ../../output_data/f3_out/best.ckpt --trainidx ../../output_data/f3_out/train_idx.txt --testidx ../../output_data/f3_out/test_idx.txt --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --out ../../output_data/f3_out/f3_test_error
+
+
 P4: Use the check point from Pipeline 3, ok
 
 python embed_v9_ca_only.py --combined-pdb ../../output_data/f1_out/combined_v91_ca.pdb --manifest-csv ../../output_data/f1_out/manifest_v91.csv --checkpoint ../../output_data/f3_out/best.ckpt --train-idx ../../output_data/f3_out/train_idx.txt --test-idx ../../output_data/f3_out/test_idx.txt --out ../../output_data/f4_out/
