@@ -44,10 +44,12 @@ P5: ok
 python predict_v9_lgbm_shap.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f5_out/
 
 
+Use this v1 to replace original one
 python predict_v9_lgbm_shap_v1.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserve
 d_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_wi
 th_labels.csv --out ../../output_data/f5_out/
 
+python visualise_dfg.py --shap-top-csv ../../output_data/f5_out/test_v2/lgbm_shap_top.csv --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --out ../../output_data/f5_out/test_v2/dfg_plot/
 
 P6:  ok, wait to the final one to finish
 First one run
