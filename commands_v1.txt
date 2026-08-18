@@ -48,4 +48,4 @@ P7
 
 ./download_kincore_fasta.sh -o ../../input_data/f7_in/
 
-python v9_per_drug_latent.py --latent-csv ../../output_data/f4_out/latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
+python per_drug_latent.py --latent-csv ../../output_data/f4_out/latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
