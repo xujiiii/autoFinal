@@ -150,89 +150,162 @@ def within_method_stability(df: pd.DataFrame, target: str,
 # CLUSTER-LEVEL aggregation -- pair-level, but pairs sharing a residue
 # are collapsed into the same group.
 # ---------------------------------------------------------------------------
-def shared_residue_cluster(
-    df: pd.DataFrame, max_other_diff: int = 2
-) -> np.ndarray:
-    """Assign every pair a cluster id using Union-Find.
+# def shared_residue_cluster(
+#     df: pd.DataFrame, max_other_diff: int = 2
+# ) -> np.ndarray:
+#     """Assign every pair a cluster id using Union-Find.
 
-    Two pairs, P1=(r1_a, r1_b) and P2=(r2_a, r2_b), belong to the same cluster iff:
-      1. They share at least ONE exact residue (e.g., r1_a == r2_a).
-      2. The OTHER residues are within `max_other_diff` apart (e.g., |r1_b - r2_b| <= 2).
+#     Two pairs, P1=(r1_a, r1_b) and P2=(r2_a, r2_b), belong to the same cluster iff:
+#       1. They share at least ONE exact residue (e.g., r1_a == r2_a).
+#       2. The OTHER residues are within `max_other_diff` apart (e.g., |r1_b - r2_b| <= 2).
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Must contain 'resi_i' and 'resi_j' columns.
-    max_other_diff : int, optional
-        Maximum allowed sequence difference for the non-shared residue (default 2).
+#     Parameters
+#     ----------
+#     df : pd.DataFrame
+#         Must contain 'resi_i' and 'resi_j' columns.
+#     max_other_diff : int, optional
+#         Maximum allowed sequence difference for the non-shared residue (default 2).
+#     """
+#     n = len(df)
+#     parent = np.arange(n)
+
+#     def find(x):
+#         while parent[x] != x:
+#             parent[x] = parent[parent[x]]
+#             x = parent[x]
+#         return x
+
+#     def union(a, b):
+#         ra, rb = find(a), find(b)
+#         if ra != rb:
+#             parent[ra] = rb
+
+#     # 1. 建立 "锚定残基 -> 包含 (另一个残基, pair_index)" 的映射表
+#     #    这样可以快速只在共享相同残基的 pairs 之间进行比较，效率极高 (O(N))
+#     anchor_map: dict[int, list[tuple[int, int]]] = {}
+
+#     for idx, (ri, rj) in enumerate(
+#         zip(df["resi_i"].values, df["resi_j"].values)
+#     ):
+#         r1, r2 = int(ri), int(rj)
+#         # Pair 由两个残基组成，每一个都可以作为锚定点 (Anchor)
+#         anchor_map.setdefault(r1, []).append((r2, idx))
+#         anchor_map.setdefault(r2, []).append((r1, idx))
+
+#     # 2. 遍历所有锚定残基，检查共享该残基的 pairs 之间，另一个残基差值是否 <= max_other_diff
+#     for anchor, entries in anchor_map.items():
+#         n_entries = len(entries)
+#         for i in range(n_entries):
+#             other_i, idx_i = entries[i]
+#             for j in range(i + 1, n_entries):
+#                 other_j, idx_j = entries[j]
+
+#                 # 共享了 anchor，判断另一个残基的差值是否 <= 2
+#                 if abs(other_i - other_j) <= max_other_diff:
+#                     union(idx_i, idx_j)
+
+#     return np.array([find(i) for i in range(n)])
+
+def get_neighborhood_scores(df: pd.DataFrame, method_col: str) -> np.ndarray:
+    """对于每个 pair (i, j)，在其严格的 4-邻域内取得分绝对值的最大值 (Max Pooling)。
+
+    其允许的 4 个邻域 pair 严格为：
+    - (i, j+1)
+    - (i, j-1)
+    - (i+1, j)
+    - (i-1, j)
     """
-    n = len(df)
-    parent = np.arange(n)
+    # 提取 (resi_i, resi_j) 的坐标列表与对应得分
+    i_vals = df["resi_i"].astype(int).values
+    j_vals = df["resi_j"].astype(int).values
+    scores = df[method_col].abs().values
 
-    def find(x):
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
+    # 建立 (i, j) -> score 的快速哈希字典
+    pair_to_score = {(i, j): s for i, j, s in zip(i_vals, j_vals, scores)}
 
-    def union(a, b):
-        ra, rb = find(a), find(b)
-        if ra != rb:
-            parent[ra] = rb
+    smoothed_scores = []
+    for i, j, s in zip(i_vals, j_vals, scores):
+        # 1. 定义严格允许的 4-邻域候选（步长为 1）
+        candidates = [(i, j + 1), (i, j - 1), (i + 1, j), (i - 1, j)]
 
-    # 1. 建立 "锚定残基 -> 包含 (另一个残基, pair_index)" 的映射表
-    #    这样可以快速只在共享相同残基的 pairs 之间进行比较，效率极高 (O(N))
-    anchor_map: dict[int, list[tuple[int, int]]] = {}
+        # 2. 检索实际存在于数据集中的邻居得分
+        neighbor_scores = [
+            pair_to_score[p] for p in candidates if p in pair_to_score
+        ]
 
-    for idx, (ri, rj) in enumerate(
-        zip(df["resi_i"].values, df["resi_j"].values)
-    ):
-        r1, r2 = int(ri), int(rj)
-        # Pair 由两个残基组成，每一个都可以作为锚定点 (Anchor)
-        anchor_map.setdefault(r1, []).append((r2, idx))
-        anchor_map.setdefault(r2, []).append((r1, idx))
+        # 3. 取自身与邻居的最大得分（相当于在 4-邻域上做了 Max-Pooling）
+        max_val = max([s] + neighbor_scores)
+        smoothed_scores.append(max_val)
 
-    # 2. 遍历所有锚定残基，检查共享该残基的 pairs 之间，另一个残基差值是否 <= max_other_diff
-    for anchor, entries in anchor_map.items():
-        n_entries = len(entries)
-        for i in range(n_entries):
-            other_i, idx_i = entries[i]
-            for j in range(i + 1, n_entries):
-                other_j, idx_j = entries[j]
-
-                # 共享了 anchor，判断另一个残基的差值是否 <= 2
-                if abs(other_i - other_j) <= max_other_diff:
-                    union(idx_i, idx_j)
-
-    return np.array([find(i) for i in range(n)])
-
-
+    return np.array(smoothed_scores)
 def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
-    """Same as the headline pair-level Jaccard but over CLUSTERS."""
-    clust = shared_residue_cluster(df)
+    """在 4-邻域平滑后的特征上计算 Top-K Jaccard 相似度。"""
     cols = [m for m, _ in METHODS]
-    # cluster score = max |score| of any pair in that cluster
+
+    # 为每个方法计算基于 4-邻域平滑后的得分向量
     cluster_score = {}
     for c in cols:
-        s = df[c].abs().values
-        df_c = pd.DataFrame({"clust": clust, "score": s})
-        cluster_score[c] = df_c.groupby("clust")["score"].max()
+        cluster_score[c] = pd.Series(
+            get_neighborhood_scores(df, c), index=df.index
+        )
+
     rows = []
     K_clust = [5, 10, 20, 50]
+
     for a, b in combinations(cols, 2):
         ca, cb = cluster_score[a], cluster_score[b]
-        common = ca.index.intersection(cb.index)
-        rho, _ = spearmanr(ca.loc[common], cb.loc[common])
-        row = {"target": target, "method_a": a, "method_b": b,
-               "n_clusters": int(len(common)),
-               "spearman_cluster": float(rho)}
+
+        # 计算邻域平滑后的 Spearman 相关系数
+        rho, _ = spearmanr(ca, cb)
+
+        row = {
+            "target": target,
+            "method_a": a,
+            "method_b": b,
+            "n_clusters": int(len(ca)),
+            "spearman_cluster": float(rho),
+        }
+
+        # 计算 Top-K 的 Jaccard 重合度
         for k in K_clust:
+            # 取平滑得分最高的前 K 个 pair 的索引集合
             ta = set(ca.nlargest(k).index)
             tb = set(cb.nlargest(k).index)
-            row[f"jaccard_top{k}_cluster"] = (
-                len(ta & tb) / max(len(ta | tb), 1))
+
+            row[f"jaccard_top{k}_cluster"] = len(ta & tb) / max(
+                len(ta | tb), 1
+            )
+
         rows.append(row)
+
     return pd.DataFrame(rows)
+
+# def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
+#     """Same as the headline pair-level Jaccard but over CLUSTERS."""
+#     clust = shared_residue_cluster(df)
+#     cols = [m for m, _ in METHODS]
+#     # cluster score = max |score| of any pair in that cluster
+#     cluster_score = {}
+#     for c in cols:
+#         s = df[c].abs().values
+#         df_c = pd.DataFrame({"clust": clust, "score": s})
+#         cluster_score[c] = df_c.groupby("clust")["score"].max()
+#     rows = []
+#     K_clust = [5, 10, 20, 50]
+#     for a, b in combinations(cols, 2):
+#         ca, cb = cluster_score[a], cluster_score[b]
+#         common = ca.index.intersection(cb.index)
+#         rho, _ = spearmanr(ca.loc[common], cb.loc[common])
+#         row = {"target": target, "method_a": a, "method_b": b,
+#                "n_clusters": int(len(common)),
+#                "spearman_cluster": float(rho)}
+#         for k in K_clust:
+#             ta = set(ca.nlargest(k).index)
+#             tb = set(cb.nlargest(k).index)
+#             row[f"jaccard_top{k}_cluster"] = (
+#                 len(ta & tb) / max(len(ta | tb), 1))
+#         rows.append(row)
+#     return pd.DataFrame(rows)
 
 
 # ---------------------------------------------------------------------------
@@ -323,25 +396,76 @@ def plot_within_vs_between(within_df: pd.DataFrame,
     plt.close(fig)
 
 
-def plot_cluster_vs_pair(clust_df_all: pd.DataFrame,
-                          pair_df_all: pd.DataFrame, out: Path):
-    pair = (pair_df_all.groupby(["method_a", "method_b"])
-            ["jaccard_top20"].mean().reset_index())
-    clust = (clust_df_all.groupby(["method_a", "method_b"])
-             ["jaccard_top20_cluster"].mean().reset_index())
+# def plot_cluster_vs_pair(clust_df_all: pd.DataFrame,
+#                           pair_df_all: pd.DataFrame, out: Path):
+#     pair = (pair_df_all.groupby(["method_a", "method_b"])
+#             ["jaccard_top20"].mean().reset_index())
+#     clust = (clust_df_all.groupby(["method_a", "method_b"])
+#              ["jaccard_top20_cluster"].mean().reset_index())
+#     df = pair.merge(clust, on=["method_a", "method_b"])
+#     df["label"] = df["method_a"].str.replace("lgbm_", "").str.replace(
+#         "_meanabs", "") + " ↔ " + df["method_b"].str.replace(
+#         "lgbm_", "").str.replace("_meanabs", "")
+
+#     fig, ax = plt.subplots(figsize=(9, 6))
+#     x = np.arange(len(df))
+#     ax.barh(x - 0.2, df["jaccard_top20"], height=0.4,
+#              color="#C62828", label="Raw pair-level top-20")
+#     ax.barh(x + 0.2, df["jaccard_top20_cluster"], height=0.4,
+#              color="#2E7D32",
+#              label="Cluster-level top-20")
+#     ax.set_yticks(x); ax.set_yticklabels(df["label"], fontsize=9)
+#     ax.set_xlabel("Jaccard overlap (z0 + z1 averaged)")
+#     ax.set_xlim(0, 1)
+#     ax.set_title("Pair-level vs cluster-level Jaccard agreement", fontsize=11)
+#     ax.legend(frameon=False, loc="lower right")
+#     ax.invert_yaxis()
+#     fig.tight_layout()
+#     for ext in ("png", "pdf"):
+#         fig.savefig(out / f"fi_cluster_vs_pair_jaccard.{ext}",
+#                     dpi=200, bbox_inches="tight")
+#     plt.close(fig)
+
+
+def plot_cluster_vs_pair(
+    clust_df_all: pd.DataFrame, pair_df_all: pd.DataFrame, out: Path
+):
+    """画图函数保持不变，完美兼容。"""
+    pair = (
+        pair_df_all.groupby(["method_a", "method_b"])["jaccard_top20"]
+        .mean()
+        .reset_index()
+    )
+    clust = (
+        clust_df_all.groupby(["method_a", "method_b"])["jaccard_top20_cluster"]
+        .mean()
+        .reset_index()
+    )
     df = pair.merge(clust, on=["method_a", "method_b"])
-    df["label"] = df["method_a"].str.replace("lgbm_", "").str.replace(
-        "_meanabs", "") + " ↔ " + df["method_b"].str.replace(
-        "lgbm_", "").str.replace("_meanabs", "")
+    df["label"] = (
+        df["method_a"].str.replace("lgbm_", "").str.replace("_meanabs", "")
+        + " ↔ "
+        + df["method_b"].str.replace("lgbm_", "").str.replace("_meanabs", "")
+    )
 
     fig, ax = plt.subplots(figsize=(9, 6))
     x = np.arange(len(df))
-    ax.barh(x - 0.2, df["jaccard_top20"], height=0.4,
-             color="#C62828", label="Raw pair-level top-20")
-    ax.barh(x + 0.2, df["jaccard_top20_cluster"], height=0.4,
-             color="#2E7D32",
-             label="Cluster-level top-20")
-    ax.set_yticks(x); ax.set_yticklabels(df["label"], fontsize=9)
+    ax.barh(
+        x - 0.2,
+        df["jaccard_top20"],
+        height=0.4,
+        color="#C62828",
+        label="Raw pair-level top-20",
+    )
+    ax.barh(
+        x + 0.2,
+        df["jaccard_top20_cluster"],
+        height=0.4,
+        color="#2E7D32",
+        label="Cluster-level top-20",
+    )
+    ax.set_yticks(x)
+    ax.set_yticklabels(df["label"], fontsize=9)
     ax.set_xlabel("Jaccard overlap (z0 + z1 averaged)")
     ax.set_xlim(0, 1)
     ax.set_title("Pair-level vs cluster-level Jaccard agreement", fontsize=11)
@@ -349,8 +473,11 @@ def plot_cluster_vs_pair(clust_df_all: pd.DataFrame,
     ax.invert_yaxis()
     fig.tight_layout()
     for ext in ("png", "pdf"):
-        fig.savefig(out / f"fi_cluster_vs_pair_jaccard.{ext}",
-                    dpi=200, bbox_inches="tight")
+        fig.savefig(
+            out / f"fi_cluster_vs_pair_jaccard.{ext}",
+            dpi=200,
+            bbox_inches="tight",
+        )
     plt.close(fig)
 
 
