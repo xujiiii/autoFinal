@@ -120,7 +120,7 @@ def main():
     df["z0"] = Z[:, 0]
     df["z1"] = Z[:, 1] if Z.shape[1] > 1 else 0.0
     df["membership"] = membership
-    df.to_csv(args.out / "v9_latent_with_labels.csv", index=False)
+    df.to_csv(args.out / "latent_with_labels.csv", index=False)
     print(f"Wrote v9_latent_with_labels.csv ({len(df)} rows)")
 
     # Legacy "landscape" CSVs for the existing kincore-overlay plotter.
