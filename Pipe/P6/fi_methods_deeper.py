@@ -320,7 +320,7 @@ def plot_residue_vs_pair(res_df_all: pd.DataFrame, pair_df_all: pd.DataFrame,
     pair = (pair_df_all.groupby(["method_a", "method_b"])
             ["jaccard_top20"].mean().reset_index())
     res = (res_df_all.groupby(["method_a", "method_b"])
-           ["jaccard_top10_resi"].mean().reset_index())
+           ["jaccard_top20_resi"].mean().reset_index())
     df = pair.merge(res, on=["method_a", "method_b"])
     df["label"] = df["method_a"].str.replace("lgbm_", "").str.replace(
         "_meanabs", "") + " ↔ " + df["method_b"].str.replace(
@@ -330,8 +330,8 @@ def plot_residue_vs_pair(res_df_all: pd.DataFrame, pair_df_all: pd.DataFrame,
     x = np.arange(len(df))
     ax.barh(x - 0.2, df["jaccard_top20"], height=0.4,
              color="#C62828", label="Pair-level top-20")
-    ax.barh(x + 0.2, df["jaccard_top10_resi"], height=0.4,
-             color="#1565C0", label="Residue-level top-10")
+    ax.barh(x + 0.2, df["jaccard_top20_resi"], height=0.4,
+             color="#1565C0", label="Residue-level top-20")
     ax.set_yticks(x); ax.set_yticklabels(df["label"], fontsize=9)
     ax.set_xlabel("Jaccard overlap (z0 + z1 averaged)")
     ax.set_xlim(0, 1)
