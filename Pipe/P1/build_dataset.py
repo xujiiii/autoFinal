@@ -19,7 +19,7 @@ import pandas as pd
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from build_v9_ca_spline import read_backbone, process_chain, write_ca_pdb
+from build_ca_spline import read_backbone, process_chain, write_ca_pdb
 
 THREE_TO_ONE = {
     "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C",
@@ -241,7 +241,7 @@ def compare_pdbs(built_pdb: Path, ref_pdb: Path, atol: float = 1e-3):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--manifest-v9", required=True, type=Path)
+    ap.add_argument("--manifest-base", required=True, type=Path)
     ap.add_argument("--addendum-merged-csv", required=True, type=Path)
     ap.add_argument("--full-pdb-dir", required=True, type=Path)
     ap.add_argument("--ref-pdb", required=True, type=Path)
@@ -274,7 +274,7 @@ def main():
         n_loop_points=args.n_loop_points,
     )
 
-    m9 = pd.read_csv(args.manifest_v9, keep_default_na=False)
+    m9 = pd.read_csv(args.manifest_base, keep_default_na=False)
     add = pd.read_csv(args.addendum_merged_csv, keep_default_na=False)
     if args.limit:
         m9 = m9.head(args.limit)
@@ -302,11 +302,11 @@ def main():
     for i, r in enumerate(manifest_rows):
         r["model_idx"] = i
 
-    out_pdb = args.out / "combined_v91_ca.pdb"
+    out_pdb = args.out / "combined_ca.pdb"
     write_combined(models, out_pdb)
     manifest = pd.DataFrame(manifest_rows)
-    manifest.to_csv(args.out / "manifest_v91.csv", index=False)
-    pd.DataFrame(failures).to_csv(args.out / "failures_v91.csv", index=False)
+    manifest.to_csv(args.out / "manifest.csv", index=False)
+    pd.DataFrame(failures).to_csv(args.out / "failures_.csv", index=False)
 
     print(f"\nWrote {out_pdb} ({len(models)} models, {len(failures)} failures)")
     print(manifest["source"].value_counts().to_string())
