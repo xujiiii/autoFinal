@@ -1,0 +1,51 @@
+P1
+
+python download_pdbs.py --structsCSV ../../input_data/f1_in/structure-matching-IPR011009_updated.tsv --out ../../input_data/PDBs
+
+python build_dataset.py --manifest-base ../../input_data/f1_in/manifest_base.csv --addendum-merged-csv ../../input_data/f1_in/addendum_merged.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f1_out/
+
+P2
+
+./install_foldmason.sh ../../input_data/f2_in
+
+python map_conserved_by_foldmason_chunks.py --manifest-csv ../../output_data/f1_out/manifest.csv --foldmason60-conserved ../../input_data/f2_in/braf_mapped_conserved_residues.csv --full-pdb-dir ../../input_data/PDBs/ --ref-pdb ../../input_data/f1_in/6UAN_chainD.pdb --out ../../output_data/f2_out/ --foldmason ../../input_data/f2_in/foldmason/bin/foldmason
+
+
+P3
+
+python train_ca_only.py --combined-pdb ../../output_data/f1_out/combined_ca.pdb --out ../../output_data/f3_out/ --max-cycles 8 --epochs-per-cycle 32 --batch-size 8
+
+python rename_best_ckpt.py --folder ../../output_data/f3_out/
+
+python construction_error.py --checkpoint ../../output_data/f3_out/best.ckpt --trainidx ../../output_data/f3_out/train_idx.txt --testidx ../../output_data/f3_out/test_idx.txt --combined-pdb ../../output_data/f1_out/combined_ca.pdb --out ../../output_data/f3_out
+
+
+P4
+
+python embed_ca_only.py --combined-pdb ../../output_data/f1_out/combined_ca.pdb --manifest-csv ../../output_data/f1_out/manifest.csv --checkpoint ../../output_data/f3_out/best.ckpt --train-idx ../../output_data/f3_out/train_idx.txt --test-idx ../../output_data/f3_out/test_idx.txt --out ../../output_data/f4_out/
+
+python visualisation.py --file ../../output_data/f4_out/landscape_encoded_train_coordinates.csv -o ../../output_data/f4_out/train_lantent.pdf -t "Latent Space of Training Dataset" --error ../../output_data/f3_out/err_train.csv 
+
+python visualisation.py --file ../../output_data/f4_out/landscape_encoded_test_coordinates.csv -o ../../output_data/f4_out/test_lantent.pdf -t "Latent Space of Test Dataset" --error ../../output_data/f3_out/err_test.csv 
+
+
+P5
+
+python predict_lgbm_shap.py --conserved-csv ../../input_data/f2_in/braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/latent_with_labels.csv --out ../../output_data/f5_out/
+
+python visualise_dfg.py --shap-top-csv ../../output_data/f5_out/lgbm_shap_top.csv --conserved-csv ../../input_data/f2_in/braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest.csv --full-pdb-dir ../../input_data/PDBs/ --out ../../output_data/f5_out/dfg_plot/
+
+P6
+
+python eval_fi_extended.py --conserved-csv ../../input_data/f2_in/braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/latent_with_labels.csv --out ../../output_data/f6_out/
+
+python fi_methods_agreement.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
+
+python fi_methods_deeper.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
+
+
+P7
+
+./download_kincore_fasta.sh -o ../../input_data/f7_in/
+
+python v9_per_drug_latent.py --latent-csv ../../output_data/f4_out/latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
