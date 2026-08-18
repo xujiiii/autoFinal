@@ -44,7 +44,7 @@ P5: ok
 python predict_v9_lgbm_shap.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f5_out/
 
 
-Use this v1 to replace original one
+Use this v1 to replace original one delete
 python predict_v9_lgbm_shap_v1.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserve
 d_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_wi
 th_labels.csv --out ../../output_data/f5_out/
@@ -59,12 +59,17 @@ tmux attach -t pipe6
 `eval_v9_fi_extended.py` → 
 python eval_v9_fi_extended.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f6_out/
 
+Use this ,old delete
+python eval_v9_fi_extended_v1.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f6_out/
+
+
 `fi_methods_agreement.py`,
 python fi_methods_agreement.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
 
 fi_methods_deeper.py
 python fi_methods_deeper.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
 
+deleted
 `compare_ca_vs_minatom.py`
 python compare_ca_vs_minatom.py --conserved-csv ../../input_data/f2_in/v9_1_braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest_v91.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/v9_latent_with_labels.csv --out ../../output_data/f6_out/
 
@@ -76,6 +81,8 @@ python v9_per_drug_latent.py --latent-csv ../../output_data/f4_out/v9_latent_wit
 
 check now
 
+
+Do not use
 v9_drug_off_target.py`,
 python v9_drug_off_target.py --full-kinome ../../output_data/f4_out/v9_latent_with_labels.csv --kincore-fasta ../../input_data/f7_in/PK_labels_PDB.fasta --out-dir ../../output_data/f7_out/
 
