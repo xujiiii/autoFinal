@@ -1,46 +1,7 @@
-"""Build the v9 dataset: Cα-only spline-fit, length 27 (BRAF-matched).
-
-This is the simplification you asked for: we no longer spline-fit the
-non-Cα backbone atoms (which had no chemistry constraints and could
-distort N–CA, CA–C, C=O bond geometry).  Only Cα is splined; that
-preserves the variable-loop-length normalisation across kinases.
-
-The 6 chemically-diagnostic DFG/APE anchor residues (D, F, G, A, P, E)
-are written to a separate sidecar PDB with their raw, untouched
-N/CA/C/O/CB backbone (post-Kabsch but no spline), in case we want
-sidechain-orientation analysis downstream.  These are NOT used to
-train the autoencoder.
-
-Spline math is an exact port of meyresearch/BRAF's
-``workflow/fitting_class.py`` (``Fitting._fit_cubic_interpolation`` and
-``_calculate_arc_length_parameterization``):
-
-  fits[d] = interp1d(np.arange(n), coords[:, j], kind='cubic')   # res-index param
-  X       = np.arange(0, n-1, 0.1)
-  Y       = sqrt(sum(grad(fits[d](X))**2 for d in xyz))
-  L       = trapz(Y, X)
-  Li      = np.linspace(0, L, Nnew)
-  pt[i]   = argmin |flen - Li[i]|
-  new_xyz = fits[d](X[pt[i]])
-
-Pipeline per chain:
-  1. read full PDB chain; pull N/Cα/C/O/Cβ in residues DFG-D … APE-E,
-     plus the 80 flank CAs (40 before DFG-D, 40 after APE-E)
-  2. Kabsch-align the flank Cα atoms to BRAF 6UAN chain C
-  3. apply rigid transform to ALL atoms (loop + anchors)
-  4. extract the loop CA trace (length K_present residues, K_present ≤ K)
-  5. cubic spline fit on residue index, arc-length resample to N_loop_points
-  6. emit two PDBs:
-       combined_v9_ca.pdb   — 27 CAs per chain, single ALA dummies (AE input)
-       combined_v9_anchors.pdb — 6 anchor residues × 5 atoms per chain (no spline)
-"""
-
 from __future__ import annotations
-
 import argparse
 import warnings
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d

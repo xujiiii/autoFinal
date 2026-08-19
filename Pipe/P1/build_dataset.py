@@ -1,12 +1,3 @@
-"""Build the v9.1 kinase loop dataset (combined_v91_ca.pdb + manifest_v91.csv).
-
-Pipeline:
-  1. Spline-fit v9 in-distribution chains (manifest_v9 residue assignments).
-  2. Spline-fit OOD addendum chains from v9_addendum_merged.csv using
-     source-specific anchor regexes.
-  3. Concatenate in published order and write multi-MODEL CA PDB.
-"""
-
 from __future__ import annotations
 
 import argparse
