@@ -35,6 +35,9 @@ python predict_lgbm_shap.py --conserved-csv ../../input_data/f2_in/braf_mapped_c
 
 python visualise_dfg.py --shap-top-csv ../../output_data/f5_out/lgbm_shap_top.csv --conserved-csv ../../input_data/f2_in/braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest.csv --full-pdb-dir ../../input_data/PDBs/ --out ../../output_data/f5_out/dfg_plot/
 
+python visualise_dfg_separate.py --shap-top-csv ../../output_data/f5_out/lgbm_shap_top.csv --conserved-csv ../../input_data/f2_in/braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest.csv --full-pdb-dir ../../input_data/PDBs/ --out ../../output_data/f5_out/dfg_plot_separate/
+
+
 P6
 
 python eval_fi_extended.py --conserved-csv ../../input_data/f2_in/braf_mapped_conserved_residues.csv --manifest-csv ../../output_data/f1_out/manifest.csv --full-pdb-dir ../../input_data/PDBs/ --latent-csv ../../output_data/f4_out/latent_with_labels.csv --out ../../output_data/f6_out/
@@ -43,6 +46,10 @@ python fi_methods_agreement.py --extended-fi-csv ../../output_data/f6_out/extend
 
 python fi_methods_deeper.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
 
+
+python visualization_dfg_separate.py --csv-path ../../output_data/f6_out/top_feature_raw_distances_z0.csv --out ../../output_data/f6_out/z0_dfg
+
+python visualization_dfg_separate.py --csv-path ../../output_data/f6_out/top_feature_raw_distances_z1.csv --out ../../output_data/f6_out/z1_dfg
 
 P7
 
