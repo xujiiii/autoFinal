@@ -72,9 +72,6 @@ def kabsch(mob: np.ndarray, ref: np.ndarray):
     return R, rc - mc @ R.T, rmsd
 
 
-# -------------------------------------------------------------- spline
-
-
 def spline_ca_arclen(ca_coords: np.ndarray, n_out: int,
                      fine_step: float = 0.1
                      ) -> np.ndarray | None:
@@ -118,9 +115,6 @@ def spline_ca_arclen(ca_coords: np.ndarray, n_out: int,
     return out.astype(np.float32)
 
 
-# -------------------------------------------------------------- per-chain
-
-
 def process_chain(pdb_path: Path, chain_id: str,
                   dfg_resi: int, ape_resi: int,
                   ref_flank_coords: np.ndarray,
@@ -133,7 +127,7 @@ def process_chain(pdb_path: Path, chain_id: str,
     if bb is None:
         return {"status": "no_chain"}
 
-    # ----- flank Cα Kabsch alignment -----
+    #flank Cα Kabsch alignment 
     flank_mob, flank_ref = [], []
     for (anchor, off), ref_xyz in zip(ref_flank_specs, ref_flank_coords):
         if anchor == "dfg":
@@ -158,7 +152,7 @@ def process_chain(pdb_path: Path, chain_id: str,
     def transform(xyz: np.ndarray) -> np.ndarray:
         return (xyz - mc) @ R.T + rc
 
-    # ----- loop Cα (length K residues, may have gaps) -----
+    #loop Cα (length K residues, may have gaps)
     loop_resis = list(range(dfg_resi, ape_resi + 1))
     K = len(loop_resis)
     ca_present = []
@@ -171,22 +165,20 @@ def process_chain(pdb_path: Path, chain_id: str,
                 "expected": K}
     ca_arr = np.array(ca_present, dtype=np.float32)
 
-    # ----- spline-fit Cα to N output points -----
+    # spline-fit Cα to N output points 
     ca_resampled = spline_ca_arclen(ca_arr, n_loop_points)
     if ca_resampled is None:
         return {"status": "ca_spline_failed"}
 
-    # ----- anchor residues (raw, post-Kabsch, no spline) -----
+    # anchor residues (raw, post-Kabsch, no spline) 
     anchors: dict[str, dict[str, np.ndarray]] = {}
     for name, (kind, off) in ANCHOR_OFFSETS.items():
         if kind == "dfg":
             r_resi = dfg_resi + off
         else:
-            # APE motif starts at ape_resi - ape_offset_to_e (= APE-A).
             ape_a = ape_resi - ape_offset_to_e
             r_resi = ape_a + (off + ape_offset_to_e)
-            # i.e. APE-A at off=-2 → ape_a; APE-P at off=-1 → ape_a+1;
-            # APE-E at off=0  → ape_a+2 = ape_resi.
+    
         if r_resi not in bb:
             anchors[name] = {}
             continue
@@ -209,9 +201,6 @@ def process_chain(pdb_path: Path, chain_id: str,
             "flank_rmsd": rmsd,
             "n_loop_present": len(ca_present),
             "expected": K}
-
-
-# -------------------------------------------------------------- writers
 
 
 def write_ca_pdb(handle, coords: np.ndarray, model_idx: int):
@@ -281,16 +270,13 @@ def main():
     ap.add_argument("--min-flank-frac", type=float, default=0.7)
     ap.add_argument("--min-loop-frac", type=float, default=0.7)
     ap.add_argument("--flank-rmsd-max", type=float, default=5.0,
-                    help="Flank Cα RMSD cutoff in Å.  meyresearch use "
-                         "3 Å on the terminal CA only; we keep 5 Å on "
-                         "the 80-flank because it averages out single "
-                         "residue noise.")
+                    help="Flank Cα RMSD cutoff in Å")
     ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
 
     out = Path(args.out); out.mkdir(parents=True, exist_ok=True)
 
-    # ----- reference flank -----
+    # reference flank
     ref_bb = read_backbone(Path(args.ref_pdb), args.ref_chain)
     if ref_bb is None:
         raise SystemExit(f"Could not read {args.ref_pdb}")
@@ -307,7 +293,7 @@ def main():
     ref_flank = np.array(ref_flank, dtype=np.float32)
     print(f"Reference flank atoms: {len(ref_specs)}/{2 * args.flank}")
 
-    # ----- Kincore labels for manifest -----
+    # Kincore labels for manifest 
     klab = {}
     with open(args.kincore_fasta) as f:
         for line in f:

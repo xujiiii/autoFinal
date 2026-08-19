@@ -28,7 +28,7 @@ def process_pdb_entry(entry):
             try:
                 chain = u.select_atoms(f"protein and chainID {chain_ID}")
                 if chain.n_atoms > 0:
-                    #output_pdb = os.path.join(target_dir, f"{accession}_{chain_ID}.pdb")
+                    
                     with mda.Writer(output_pdb) as w:
                         w.write(chain)
                     post_process(output_pdb)

@@ -83,12 +83,7 @@ def parallel_download(pdb_list, pdir=None):
     """Download PDB files in parallel"""
     num_workers = min(20, multiprocessing.cpu_count()*2)  # Limit the number of threads
     chunk_size = max(10, len(pdb_list) // num_workers)  # Each thread handles at least 10 PDB files
-
     splited_pdb_lists = [pdb_list[i:i+chunk_size] for i in range(0, len(pdb_list), chunk_size)]
-
-    # with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-    #     executor.map(download_pdbs, splited_pdb_lists)
-    
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         executor.map(lambda sublist: download_pdbs(sublist, pdir=pdir), splited_pdb_lists)
             
@@ -96,21 +91,15 @@ def parallel_download(pdb_list, pdir=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--structsCSV", required=True, type=Path)
-
     ap.add_argument("--out", required=True, type=Path)
-
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
     
     structure_path = args.structsCSV
-
-
     pdb_data = pd.read_csv(structure_path, sep = "\t", header=0, engine='python')
     pdb_data['Accession'] = pdb_data['Accession'].str.upper()
 
-
-            
     pdbs_ids = pdb_data['Accession'].tolist()
     parallel_download(pdbs_ids,args.out)
 
@@ -122,10 +111,9 @@ def main():
 
     counts = pdb_data['Downloaded'].value_counts().to_dict()
     print(f"Downloaded: {counts[True]}, Failed: {counts[False]}")
-    
+
     fail_list = pdb_data[pdb_data['Downloaded']==False]
     fail_list.to_csv('fail_list.csv')
-
 
 if __name__ == "__main__":
     main()

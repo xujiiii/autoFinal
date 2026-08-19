@@ -175,7 +175,6 @@ def build_addendum_row(row, pdb_dir: Path, ref_specs, ref_flank,
         return None, {"chain_key": chain_key, **{
             k: v for k, v in r.items() if k not in ("ca", "anchors")}}
     ca = r["ca"].astype(np.float32)
-    # ca = ca - ca.mean(axis=0)  # match published addendum PDB convention
     manifest = {
         "chain_key": chain_key,
         "pdb": chain_key[:4],
@@ -248,8 +247,7 @@ def main():
     ap.add_argument("--min-flank-frac", type=float, default=0.7)
     ap.add_argument("--min-loop-frac", type=float, default=0.7)
     ap.add_argument("--flank-rmsd-max", type=float, default=10.0)
-    ap.add_argument("--limit", type=int, default=0,
-                    help="Process only first N v9 + M addendum chains for testing")
+    ap.add_argument("--limit", type=int, default=0)
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
