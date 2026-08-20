@@ -47,10 +47,6 @@ python fi_methods_agreement.py --extended-fi-csv ../../output_data/f6_out/extend
 python fi_methods_deeper.py --extended-fi-csv ../../output_data/f6_out/extended_fi_table.csv --out ../../output_data/f6_out/
 
 
-python visualization_dfg_separate.py --csv-path ../../output_data/f6_out/top_feature_raw_distances_z0.csv --out ../../output_data/f6_out/z0_dfg
-
-python visualization_dfg_separate.py --csv-path ../../output_data/f6_out/top_feature_raw_distances_z1.csv --out ../../output_data/f6_out/z1_dfg
-
 P7
 
 ./download_kincore_fasta.sh -o ../../input_data/f7_in/
