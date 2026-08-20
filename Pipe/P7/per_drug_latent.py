@@ -211,9 +211,7 @@ def main():
     ap.add_argument("--addendum-csv", type=Path, default=None,
                     help="Optional CSV of OOD-encoded chains (e.g. EGFR/ALK "
                          "from extract_and_encode_addendum.py) to merge into "
-                         "the static-PDB latent.  These chains were NOT in "
-                         "v9 training; they are marked ood=True in the per-"
-                         "drug summary and plotted with hollow markers.")
+                         "the static-PDB latent.")
     ap.add_argument("--min-n-for-plot", type=int, default=3,
                     help="Drugs with fewer chains are excluded from figures "
                          "but kept in the summary CSV.")
