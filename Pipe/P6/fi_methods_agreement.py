@@ -233,8 +233,6 @@ def main():
     plot_consensus_residues(df_z0, df_z1, fig_dir)
 
     n_features = (full["target"] == "z0").sum()
-    # write_html_section(agrs, consensus["z0"], consensus["z1"],
-    #                    n_features, args.out)
 
     # Print headline summary
     print("\n=== HEADLINE SUMMARY ===")

@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import spearmanr
+import os
+
 
 METHODS = [
     ("lgbm_gain",         "LightGBM gain"),
@@ -48,7 +50,7 @@ def per_residue_score(df: pd.DataFrame, col: str, top_k: int | None = None
     b = d.groupby("resi_j")["w"].sum()
     return a.add(b, fill_value=0)
 
-
+#The table used to plot single residue level vs pair level jaccard
 def residue_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
     """Spearman ρ + Jaccard@K_resi between every pair of methods, at the
     *residue* level instead of the *pair* level."""
@@ -318,6 +320,7 @@ def main():
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     fig_dir = args.out / "figures"; fig_dir.mkdir(exist_ok=True)
+    
     full = pd.read_csv(args.extended_fi_csv)
     res_rows, stab_rows, clust_rows = [], [], []
     for t in ("z0", "z1"):
@@ -328,6 +331,7 @@ def main():
         stab_rows.append(within_method_stability(df, t,
                                                   n_boot=args.n_boot))
         clust_rows.append(cluster_level_table(df, t))
+        
     res_df = pd.concat(res_rows, ignore_index=True)
     stab_df = pd.concat(stab_rows, ignore_index=True)
     clust_df = pd.concat(clust_rows, ignore_index=True)
@@ -336,10 +340,8 @@ def main():
     clust_df.to_csv(args.out / "fi_cluster_level_agreement.csv", index=False)
 
     from glob import glob
-    import os
 
     pattern = os.path.join(str(args.out), "fi_method_agreement_z?.csv")
-
     pa_files = sorted(glob(pattern))
     if pa_files:
         pair_agreement = pd.concat([pd.read_csv(p) for p in pa_files],

@@ -55,22 +55,19 @@ def per_axis_r2(y_true, y_pred):
         r2s.append(1 - ss_res / ss_tot if ss_tot > 0 else np.nan)
     return r2s
 
+
 def build_distance_matrix(conserved_csv: Path, manifest_csv: Path,
                           full_pdb_dir: Path, ref_chain_key: str,
                           ape_resi_floor: int, min_pair_coverage: float,dfg_resi:int,n_flank=40):
     conserved = pd.read_csv(conserved_csv, keep_default_na=False)
     conserved["chain_key"] = norm_key(conserved["chain_key"])
     ref = conserved[conserved["chain_key"] == ref_chain_key.upper()].copy()
-
-
     ref["braf_resi"] = ref["braf_resi"].astype(int)    
 
     c1_n_flank = (ref["braf_resi"] < dfg_resi) & (ref["braf_resi"] >= dfg_resi - n_flank)
     c2_c_flank = (ref["braf_resi"] > ape_resi_floor) & (ref["braf_resi"] <= ape_resi_floor + n_flank)
 
-
-    ref = ref[c1_n_flank | c2_c_flank]
-    
+    ref = ref[c1_n_flank | c2_c_flank]    
     braf_resis = sorted(ref["braf_resi"].unique().tolist())
     
     print(f"Reference conserved non-loop BRAF residues: {len(braf_resis)}")
