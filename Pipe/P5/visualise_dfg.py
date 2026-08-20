@@ -29,7 +29,7 @@ def norm_key(s: pd.Series) -> pd.Series:
 
 
 def read_ca_map(pdb_path: Path, chain: str) -> dict[int, np.ndarray]:
-    """读取指定 PDB 文件的 CA 原子坐标"""
+    """read c alpha data"""
     out: dict[int, np.ndarray] = {}
     if not pdb_path.exists():
         return out
@@ -78,7 +78,6 @@ def main():
 
     print(f"Find {len(unique_pairs)} Top SHAP residue distance")
 
-
     conserved = pd.read_csv(args.conserved_csv, keep_default_na=False)
     conserved["chain_key"] = norm_key(conserved["chain_key"])
 
@@ -94,12 +93,10 @@ def main():
     
     print(f"All chain file can use: {len(manifest)}")
 
-
     chain_maps = (
         conserved.groupby("chain_key")
         .apply(lambda g: dict(zip(g["braf_resi"].astype(int), g["pdb_resi"].astype(int))))
     ).to_dict()
-
 
     n_samples = len(manifest)
     X_dist = np.full((n_samples, len(unique_pairs)), np.nan, dtype=np.float32)
@@ -125,14 +122,12 @@ def main():
 
     dfg_labels = manifest[args.dfg_col].astype(str).values
 
-
     color_map = {
         "DFGin": "#315f8e",  
         "DFGout": "#c0504d"  
     }
 
     target_classes = ["DFGin", "DFGout"]
-
     for tg in ("z0", "z1"):
         sub = top_pairs[top_pairs["target"] == tg].sort_values("rank").head(9)
         if len(sub) == 0:

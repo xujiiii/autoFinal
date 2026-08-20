@@ -94,7 +94,6 @@ def extract_clean_drug_name(
         if cleaned and not cleaned.isupper() and len(cleaned) < 25:
             return cleaned.capitalize()
 
-
     cleaned_chem = sanitize_drug_name(chem_name)
     if cleaned_chem and len(cleaned_chem) < 25:
         return cleaned_chem.capitalize()
