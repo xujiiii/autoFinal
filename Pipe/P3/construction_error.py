@@ -1,4 +1,3 @@
-
 import numpy as np
 import os
 import glob 
@@ -94,6 +93,11 @@ from molearn.analysis.analyser import MolearnAnalysis
 from sklearn import tree
 import argparse
 from pathlib import Path
+import glob
+import os
+
+from copy import deepcopy
+
 
 def main():
     ap = argparse.ArgumentParser()
@@ -106,14 +110,8 @@ def main():
     
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
-    import glob
-    
-    # file_pattern = '/data/student/xujia/autoFinal/output_data/f3_out/best.ckpt'
 
     file_pattern=args.checkpoint
-
-    
-
     matching_files = sorted(glob.glob(str(file_pattern)))
 
     if len(matching_files) == 0:
@@ -129,20 +127,13 @@ def main():
     print("Using file:", networkfile)
     print("Network kwargs:", checkpoint['network_kwargs'])
 
-    import os
+
     data = PDBData()
-    # folder_name = 'Results/fitted_matlab_segments/mustang_endsAlignment_cleaned_noOutliers'
-    # #folder_name="Results/fitted_matlab_segments/foldseek_endsAlignment_cleaned_noOutliers_noPCAoutliers"
-    # combined_file_path = os.path.join(folder_name, 'combined.pdb')
-    
     data.import_pdb(filename=args.combined_pdb)
     data.fix_terminal()
     data.atomselect(atoms = ['CA', 'C', 'N', 'CB', 'O'])
     data.prepare_dataset()
 
-
-
-    from copy import deepcopy
     MA = MolearnAnalysis()
     MA.set_network(net)
 
@@ -247,10 +238,6 @@ def main():
         mol.write(os.path.join(directory_name, f"s{i}.pdb")) 
     
     
-    
-    """
-    Apply the same function to the test dataset as used for training.
-    """
     directory_name = out/'Results/run_trial_BRAFActivationLoop_postalign_cleaned_noOutlier_11_checkpoint_newsplit/decoded_test'
 
     ifnotmake(directory_name)
@@ -272,11 +259,7 @@ def main():
 
         mol.write(os.path.join(directory_name, f"s{i}.pdb")) 
 
-    import pandas as pd
-
     saveName = '_foldingnet_checkpoint'
-
-
     err_train = MA.get_error('training')
     df = pd.DataFrame(err_train, columns=['training_error'])
     # train index 1 means the error belongs to the pdb with model index equals to the index recorded in train_idx.txt at position 1(start by 0)
@@ -307,8 +290,6 @@ def main():
     plt.title('Reconstruction error between encoded and decoded test dataset',fontsize=20)
     plt.show()
     f.savefig(out/f'err_test_{saveName}.pdf')
-
-
 
 
 if __name__ == "__main__":

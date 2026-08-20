@@ -1,18 +1,3 @@
-"""Embed v9 chains into the trained 2-D latent.
-
-CA-only version of ``embed_v4_latent.py`` that bypasses molearn's
-``PDBData.prepare_dataset`` (which crashes when the input has only
-CA atoms — see ``train_v6_foldingnet_ca.py``).
-
-Outputs:
-  v9_latent_with_labels.csv   columns:
-      chain_key, idx, z0, z1, train_or_test,
-      gene, group, dfg_spatial, dihedral, ligand_type,
-      n_loop_present, flank_rmsd
-  landscape_encoded_train_coordinates.csv  (legacy schema)
-  landscape_encoded_test_coordinates.csv
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -21,6 +6,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+from molearn.data import PDBData
+from molearn.models.small_foldingnet import Small_AutoEncoder
+
 
 
 def load_combined_pdb(path: Path) -> np.ndarray:
@@ -53,29 +41,13 @@ def main():
 
     args.out.mkdir(parents=True, exist_ok=True)
 
-    # ---------------------------------------------------------------
-    # NORMALISATION — load via molearn's PDBData so the inference input
-    # is byte-identical to what training saw: fix_terminal() + atomselect
-    # + (coords - global_mean) / global_std standardisation.
-    #
-    # BUG FIX 2026-06-15: this script previously parsed the PDB directly
-    # and did per-chain centroid subtraction with NO std division. That
-    # fed the encoder an input distribution ~std× larger and differently
-    # centred than training, producing wildly mis-scaled latents (v9.1:
-    # std ~5000, |z|max ~175000, LightGBM R² 0.38). Loading through
-    # PDBData (identical to train_v9_ca_only.py) gives the SAME v9.1
-    # checkpoint a well-conditioned latent (std ~104, |z|max ~213) and
-    # R² 0.901. Delegating to PDBData (rather than replicating the
-    # scalar standardisation by hand) also matches fix_terminal exactly.
-    # ---------------------------------------------------------------
-    from molearn.data import PDBData
     data = PDBData()
     data.import_pdb(filename=str(args.combined_pdb))
     data.fix_terminal()
     data.atomselect(atoms=["CA"])
     data.prepare_dataset()
     print(f"molearn standardisation: mean={data.mean:.4f}, std={data.std:.4f}")
-    coords = data.dataset.numpy()           # (n, n_atoms, 3), standardised
+    coords = data.dataset.numpy()           
     n, n_atoms, _ = coords.shape
     print(f"Loaded {n} models × {n_atoms} CAs (via PDBData)")
 
@@ -90,7 +62,6 @@ def main():
     membership[test_idx] = "test"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    from molearn.models.small_foldingnet import Small_AutoEncoder
     net = Small_AutoEncoder(out_points=n_atoms).to(device)
     state = torch.load(str(args.checkpoint), map_location=device,
                        weights_only=False)
@@ -108,8 +79,6 @@ def main():
     with torch.no_grad():
         for i in range(0, n, 128):
             batch = X[i:i + 128].float()
-            # molearn Small_AutoEncoder expects (B, N, 3) and permutes
-            # internally — pass as-is.
             z = net.encode(batch)
             Z.append(z.cpu().numpy().reshape(z.shape[0], -1))
     Z = np.concatenate(Z, axis=0)

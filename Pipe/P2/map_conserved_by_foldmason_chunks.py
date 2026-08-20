@@ -76,8 +76,6 @@ def write_chain_pdb(src: Path, chain: str, dst: Path) -> bool:
 
 
 def header_to_key(header: str) -> str:
-    # FoldMason may emit "4TWPA", "4TWPA_A", or paths.  Our chain-specific
-    # files are named CHAINKEY.pdb, so the first token is enough.
     stem = Path(header.split()[0]).stem.upper()
     stem = stem.replace(".PDB", "")
     parts = stem.split("_")
@@ -221,8 +219,6 @@ def main() -> None:
         seq_by_key = {header_to_key(k): v for k, v in msa.items()}
         ref_seq = seq_by_key.get(args.ref_key.upper())
         if ref_seq is None:
-            # Sometimes FoldMason appends the single chain ID.  Fall back to
-            # any sequence beginning with the reference key.
             matches = [v for k, v in seq_by_key.items() if k.startswith(args.ref_key.upper())]
             ref_seq = matches[0] if matches else None
         if ref_seq is None:

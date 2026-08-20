@@ -48,14 +48,6 @@ def main():
     data.prepare_dataset()
     print(data._mol)
     
-    # if data.dataset.shape[1] == 3 and data.dataset.shape[2] != 3:
-    #     print(f"检测到维度转置问题！原 shape: {data.dataset.shape}")
-    #     # data.dataset 通常是 torch.Tensor 或 numpy.ndarray
-    #     if isinstance(data.dataset, torch.Tensor):
-    #         data.dataset = data.dataset.permute(0, 2, 1)
-    #     else:
-    #         data.dataset = data.dataset.transpose(0, 2, 1)
-    #     print(f"已修正为标准 shape: {data.dataset.shape}")
     n = data.dataset.shape[0]
     
     idx = np.random.RandomState(seed=args.seed).permutation(n)
@@ -75,8 +67,6 @@ def main():
     trainer.set_data(data_train, batch_size=args.batch_size,
                      validation_split=0.1, manual_seed=args.seed)
     
-    
-    # n_atoms = data.dataset.shape[1]
     if data.dataset.shape[1] == 3:
         n_atoms = data.dataset.shape[2]
     else:

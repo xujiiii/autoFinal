@@ -12,8 +12,6 @@ def main():
 
     f3_out = Path(args.folder)
     
-
-    # 读取并载入 pkl 文件
     with open(f"{f3_out}/final.pkl", 'rb') as f:
         data = pickle.load(f)
 
@@ -26,7 +24,6 @@ def main():
         print(f"No matching checkpoint files found in {f3_out}")
         return
 
-    # 正则提取 loss 数字，排除末尾 .ckpt 的句点
     best_ckpt = min(
         ckpt_files,
         key=lambda p: float(re.search(r"loss([0-9]+\.?[0-9]*)", p.stem).group(1)),
