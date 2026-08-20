@@ -54,19 +54,18 @@ def read_ca_map(pdb_path: Path, chain: str) -> dict[int, np.ndarray]:
 
 def main():
     ap = argparse.ArgumentParser(description="Plot feature distance distributions for DFGin vs DFGout.")
-    ap.add_argument("--shap-top-csv", required=True, type=Path, help="lgbm_shap_top.csv 文件路径")
-    ap.add_argument("--conserved-csv", required=True, type=Path, help="conserved残基映射表")
-    ap.add_argument("--manifest-csv", required=True, type=Path, help="包含 dfg_spatial 的 manifest 映射表")
-    ap.add_argument("--full-pdb-dir", required=True, type=Path, help="PDB 文件目录")
-    ap.add_argument("--out", required=True, type=Path, help="输出目录")
-    ap.add_argument("--dfg-col", type=str, default="dfg_spatial", help="manifest 中记录 DFG 状态的列名，默认 dfg_spatial")
+    ap.add_argument("--shap-top-csv", required=True, type=Path, help="lgbm_shap_top.csv")
+    ap.add_argument("--conserved-csv", required=True, type=Path, help="conserved map file")
+    ap.add_argument("--manifest-csv", required=True, type=Path, help="manifest from pipeline 1")
+    ap.add_argument("--full-pdb-dir", required=True, type=Path)
+    ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--dfg-col", type=str, default="dfg_spatial", help="column name in manifest to represent DFG status")
     args = ap.parse_args()
 
     args.out.mkdir(parents=True, exist_ok=True)
     fig_dir = args.out / "figures"
     fig_dir.mkdir(exist_ok=True)
 
-    # 1. 读取 SHAP Top 特征文件并提取唯一的 residue pairs
     shap_df = pd.read_csv(args.shap_top_csv)
     top_pairs = (
         shap_df.groupby("target")
@@ -77,9 +76,9 @@ def main():
     unique_pairs = [(int(i), int(j)) for i, j in unique_pairs]
     pair_to_idx = {pair: idx for idx, pair in enumerate(unique_pairs)}
 
-    print(f"提取到 {len(unique_pairs)} 个独立的 Top SHAP 残基对距离")
+    print(f"Find {len(unique_pairs)} Top SHAP residue distance")
 
-    # 2. 读取 Mapping 与 Manifest
+
     conserved = pd.read_csv(args.conserved_csv, keep_default_na=False)
     conserved["chain_key"] = norm_key(conserved["chain_key"])
 
@@ -87,28 +86,27 @@ def main():
     manifest["chain_key"] = manifest["chain_key"].astype(str).str.upper()
 
     if args.dfg_col not in manifest.columns:
-        raise KeyError(f"列 '{args.dfg_col}' 未在 {args.manifest_csv} 中找到！可用列: {list(manifest.columns)}")
+        raise KeyError(f"No '{args.dfg_col}' found in {args.manifest_csv}. All columns: {list(manifest.columns)}")
 
-    # 【过滤】只保留 DFGin 和 DFGout 状态
     manifest = manifest.dropna(subset=[args.dfg_col]).copy()
     valid_states = {"DFGin", "DFGout", "DFG-in", "DFG-out"}
     manifest = manifest[manifest[args.dfg_col].astype(str).isin(valid_states)].reset_index(drop=True)
     
-    print(f"过滤后的结构链数 (仅 DFGin/DFGout): {len(manifest)}")
+    print(f"All chain file can use: {len(manifest)}")
 
-    # 构建残基映射表 chain_key -> {braf_resi: pdb_resi}
+
     chain_maps = (
         conserved.groupby("chain_key")
         .apply(lambda g: dict(zip(g["braf_resi"].astype(int), g["pdb_resi"].astype(int))))
     ).to_dict()
 
-    # 3. 计算距离矩阵
+
     n_samples = len(manifest)
     X_dist = np.full((n_samples, len(unique_pairs)), np.nan, dtype=np.float32)
 
     for ii in range(n_samples):
         if ii % 200 == 0:
-            print(f"  计算 PDB 距离进度: {ii}/{n_samples}")
+            print(f"Compute PDB distance: {ii}/{n_samples}")
         row = manifest.iloc[ii]
         key = row["chain_key"]
         cmap = chain_maps.get(key)
@@ -127,10 +125,10 @@ def main():
 
     dfg_labels = manifest[args.dfg_col].astype(str).values
 
-    # 4. 按 target (z0, z1) 绘图 (仅对比 DFGin vs DFGout)
+
     color_map = {
-        "DFGin": "#315f8e",   # 经典蓝色
-        "DFGout": "#c0504d"   # 经典红色
+        "DFGin": "#315f8e",  
+        "DFGout": "#c0504d"  
     }
 
     target_classes = ["DFGin", "DFGout"]
@@ -153,7 +151,7 @@ def main():
             ax = axes[k // 3, k % 3]
 
             for cls in target_classes:
-                # 兼容 "DFGin"/"DFG-in" 写法
+             
                 cls_mask = (dfg_labels == cls) | (dfg_labels == cls.replace("DFG", "DFG-"))
                 color = color_map[cls]
 
@@ -163,7 +161,6 @@ def main():
 
                 distances = X_dist[m, fi]
 
-                # (1) 导出原始数据（做检验使用）
                 for val in distances:
                     raw_export_rows.append({
                         "target": tg,
@@ -175,7 +172,6 @@ def main():
                         "distance_angstrom": float(val)
                     })
 
-                # (2) 绘制密度分布直方图
                 densities, bin_edges, _ = ax.hist(
                     distances, bins=30, alpha=0.55, density=True,
                     label=f"{cls} (n={m.sum()})", color=color
@@ -183,7 +179,6 @@ def main():
 
                 bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
-                # (3) 导出直方图坐标点
                 for bc, den in zip(bin_centers, densities):
                     hist_density_rows.append({
                         "target": tg,
@@ -210,16 +205,15 @@ def main():
         fig.savefig(fig_dir / f"top_feature_distance_distributions_{tg}.pdf")
         plt.close(fig)
 
-        # 保存过滤后的 CSV 结果
         pd.DataFrame(raw_export_rows).to_csv(
             args.out / f"top_feature_raw_distances_{tg}.csv", index=False
         )
         pd.DataFrame(hist_density_rows).to_csv(
             args.out / f"top_feature_hist_density_{tg}.csv", index=False
         )
-        print(f"成功导出 {tg} (DFGin vs DFGout) 分布图和 CSV。")
+        print(f"Save {tg} (DFGin vs DFGout) plot and CSV file")
 
-    print(f"\n全流程完成！结果已存至: {args.out}")
+    print(f"All output under: {args.out}")
 
 
 if __name__ == "__main__":
