@@ -74,9 +74,6 @@ def residue_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------
-# WITHIN-METHOD STABILITY via bootstrap of the FI values themselves
-
 def within_method_stability(df: pd.DataFrame, target: str,
                             n_boot: int = 20, seed: int = 25
                             ) -> pd.DataFrame:
@@ -127,7 +124,7 @@ def is_neighbor_match(pair_a: tuple, pair_b: tuple) -> bool:
 
     return False
 
-
+#The table used to plot cluster level vs pair level jaccard
 def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
     cols = [m for m, _ in METHODS]
 
@@ -179,9 +176,6 @@ def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
 
 def plot_residue_vs_pair(res_df_all: pd.DataFrame, pair_df_all: pd.DataFrame,
                          out: Path):
-    """Side-by-side: pair-level Jaccard@20 vs residue-level Jaccard@10.
-    Show that residue-level overlap is much higher across all method
-    pairs."""
     # average over targets
     pair = (pair_df_all.groupby(["method_a", "method_b"])
             ["jaccard_top20"].mean().reset_index())
@@ -262,7 +256,7 @@ def plot_within_vs_between(within_df: pd.DataFrame,
     plt.close(fig)
 
 
-
+#Plot the cluster level vs pair level graph
 def plot_cluster_vs_pair(
     clust_df_all: pd.DataFrame, pair_df_all: pd.DataFrame, out: Path
 ):
@@ -319,15 +313,12 @@ def plot_cluster_vs_pair(
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--extended-fi-csv", required=True, type=Path)
-
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--n-boot", type=int, default=20)
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     fig_dir = args.out / "figures"; fig_dir.mkdir(exist_ok=True)
-
     full = pd.read_csv(args.extended_fi_csv)
-
     res_rows, stab_rows, clust_rows = [], [], []
     for t in ("z0", "z1"):
         df = full[full["target"] == t].reset_index(drop=True).copy()
