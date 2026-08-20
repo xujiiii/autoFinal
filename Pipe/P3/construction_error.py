@@ -272,6 +272,7 @@ def main():
     data = [err_train]
     f = plt.figure(figsize=(10, 10))
     sns.violinplot(data)
+    plt.tick_params(axis='both', which='major', labelsize=16)
     q3 = np.percentile(err_train, 75)
     plt.axhline(y=q3, color='r', linestyle='--', linewidth=1.5, label=f'Q3 ({q3:.2f})')
     plt.legend(loc='upper right', fontsize=20)
@@ -283,6 +284,7 @@ def main():
     data = [err_test]
     f = plt.figure(figsize=(10, 10))
     sns.violinplot(data)
+    plt.tick_params(axis='both', which='major', labelsize=16)
     q3 = np.percentile(err_test, 75)
     plt.axhline(y=q3, color='r', linestyle='--', linewidth=1.5, label=f'Q3 ({q3:.2f})')
     plt.legend(loc='upper right', fontsize=20)
