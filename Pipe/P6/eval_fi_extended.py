@@ -1,38 +1,3 @@
-"""Extended feature-importance evaluation for the v9 LightGBM model.
-
-Goes beyond the already-computed LightGBM gain + SHAP analysis:
-
-  - **Permutation importance**: model-agnostic, computed by shuffling each
-    feature on the held-out set and measuring the R² drop. Complementary
-    to gain (which is internal-to-LightGBM) and SHAP.
-  - **Ridge linear-coefficient importance**: |β| from a separately trained
-    ridge regression. Lets us see whether the linear model agrees on
-    which residues matter.
-  - **Random Forest impurity importance**: a third tree-based importance.
-  - **Cross-method ranking agreement**: Spearman ρ between every pair of
-    methods, plotted as a heatmap.
-  - **Class-stratified distance distributions**: for the top SHAP features,
-    plot the actual Cα-Cα distance distribution coloured by Kincore DFG
-    spatial class. Visually confirms the FI ranking picks up real
-    DFG-in vs DFG-out signal.
-  - **Quantitative FI quality**: train a simple linear logistic-regression
-    classifier on the top-N FI features (by gain, SHAP, permutation, ridge),
-    predicting Kincore DFG spatial. Reports test-set balanced accuracy
-    as a function of N. If the FI ranking is meaningful, the top-N curves
-    should rise faster than a random-feature baseline.
-
-Inputs are the same as ``predict_v9_lgbm_shap.py`` plus the latent CSV
-with Kincore labels and the v9 manifest.
-
-Outputs (under ``--out``):
-  - extended_fi_table.csv        — one row per feature, all 4 importance scores
-  - ranking_agreement_heatmap.png — Spearman ρ between methods (4x4)
-  - top_feature_distance_distributions_z0.png  / _z1.png
-  - top_feature_classifier_curve.png   — DFG-class accuracy vs N features
-  - top_feature_classifier_table.csv
-  - per_residue_importance_combined.png — overlay of 4 methods on residue axis
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -99,13 +64,11 @@ def build_distance_matrix(conserved_csv: Path, manifest_csv: Path,
 
 
     ref["braf_resi"] = ref["braf_resi"].astype(int)    
-    # n_flank = 40  # 侧翼窗口长度
 
-    # 1. 定义两个侧翼区间条件
     c1_n_flank = (ref["braf_resi"] < dfg_resi) & (ref["braf_resi"] >= dfg_resi - n_flank)
     c2_c_flank = (ref["braf_resi"] > ape_resi_floor) & (ref["braf_resi"] <= ape_resi_floor + n_flank)
 
-    # 2. 取并集（同时保留 N 端侧翼和 C 端侧翼，剔除活化环本体及远处骨架）
+
     ref = ref[c1_n_flank | c2_c_flank]
     
     braf_resis = sorted(ref["braf_resi"].unique().tolist())
@@ -150,12 +113,7 @@ def build_distance_matrix(conserved_csv: Path, manifest_csv: Path,
           f"{keep.sum()}/{len(pair_list)}")
     X = X[:, keep]
     pair_list = [p for p, k in zip(pair_list, keep) if k]
-    # Per-chain imputation fraction (BEFORE filling), so callers can drop
-    # chains whose conserved-distance features are mostly mean-imputed.
-    # Such chains have a FoldMason table entry but their mapped residues
-    # don't actually cover the conserved non-loop pairs; left in, they
-    # collapse to the centroid prediction and form a horizontal band in
-    # the predicted-vs-actual scatter (residual form of the v9 "stripe").
+
     frac_imputed = np.isnan(X).mean(axis=1)
     col_mean = np.nanmean(X, axis=0)
     inds = np.where(np.isnan(X))
@@ -188,7 +146,6 @@ def main():
     )
     feature_names = [f"d_{a}_{b}" for a, b in pairs]
 
-    # BUG-FIX 2026-05-27: drop chains with no FoldMason mapping
     conserved_df = pd.read_csv(args.conserved_csv, keep_default_na=False)
     conserved_df["chain_key"] = norm_key(conserved_df["chain_key"])
     mapped_keys = set(conserved_df["chain_key"].unique())
@@ -226,7 +183,7 @@ def main():
     sc = StandardScaler().fit(Xtr)
     Xtr_s = sc.transform(Xtr); Xte_s = sc.transform(Xte)
 
-    # ---------- 1. LightGBM ----------
+    # 1. LightGBM 
     print("\nTraining LightGBM (z0, z1)")
     import lightgbm as lgb
     lgb_models = {}
@@ -245,7 +202,7 @@ def main():
     gain = {name: m.booster_.feature_importance(importance_type="gain")
             for name, m in lgb_models.items()}
 
-    # ---------- 2. SHAP ----------
+    #  2. SHAP
     print("\nComputing SHAP on test set")
     import shap
     shap_abs = {}
@@ -254,7 +211,7 @@ def main():
         if isinstance(sv, list): sv = sv[0]
         shap_abs[name] = np.abs(sv).mean(axis=0)
 
-    # ---------- 3. Permutation importance on LightGBM ----------
+    # 3. Permutation importance on LightGBM 
     print("\nComputing permutation importance on LightGBM test set")
     from sklearn.inspection import permutation_importance
     perm_imp = {}
@@ -269,7 +226,7 @@ def main():
               [f"{pairs[i][0]}-{pairs[i][1]}"
                for i in np.argsort(-result.importances_mean)[:5]])
 
-    # ---------- 4. Ridge linear-coefficient importance ----------
+    #  4. Ridge linear-coefficient importance
     print("\nTraining ridge for coefficient importance")
     from sklearn.linear_model import Ridge
     ridge_models = {}
@@ -284,7 +241,7 @@ def main():
     ridge_r2 = per_axis_r2(Yte, ridge_preds)
     print(f"  Ridge z0 R²={ridge_r2[0]:.3f}, z1 R²={ridge_r2[1]:.3f}")
 
-    # ---------- 5. Random Forest impurity importance ----------
+    #  5. Random Forest impurity importance
     print("\nTraining Random Forest")
     from sklearn.ensemble import RandomForestRegressor
     rf_imp = {}
@@ -299,7 +256,7 @@ def main():
     rf_r2 = per_axis_r2(Yte, rf_preds)
     print(f"  RF z0 R²={rf_r2[0]:.3f}, z1 R²={rf_r2[1]:.3f}")
 
-    # ---------- Master FI table ----------
+    # Master FI table
     rows = []
     for j, (a, b) in enumerate(pairs):
         for tg in ("z0", "z1"):
@@ -316,7 +273,7 @@ def main():
     fi_df = pd.DataFrame(rows)
     fi_df.to_csv(args.out / "extended_fi_table.csv", index=False)
 
-    # ---------- Cross-method ranking agreement (Spearman) ----------
+    #  Cross-method ranking agreement (Spearman) 
     from scipy.stats import spearmanr
     methods = ["lgbm_gain", "lgbm_shap_meanabs", "lgbm_permutation",
                "ridge_abs_coef", "rf_impurity"]
@@ -344,7 +301,7 @@ def main():
         fig.savefig(args.out / f"ranking_agreement_{tg}.png")
         plt.close(fig)
 
-    # ---------- Per-residue importance overlay (4 methods) ----------
+    # Per-residue importance overlay (4 methods)
     all_resis = sorted({r for p in pairs for r in p})
     res_idx = {r: i for i, r in enumerate(all_resis)}
     n_res = len(all_resis)
@@ -381,32 +338,6 @@ def main():
     fig.savefig(args.out / "per_residue_importance_combined.png")
     plt.close(fig)
 
-    # ---------- Top-feature class-stratified distance distributions ----------
-    # for tg in ("z0", "z1"):
-    #     sub = fi_df[fi_df["target"] == tg].sort_values(
-    #         "lgbm_shap_meanabs", ascending=False)
-    #     top_idxs = [feature_names.index(f) for f in sub["feature"].head(9)]
-    #     fig, axes = plt.subplots(3, 3, figsize=(12, 9))
-    #     for k, fi in enumerate(top_idxs):
-    #         ax = axes[k // 3, k % 3]
-    #         for cls, color in [("DFGin", "#315f8e"), ("DFGout", "#c0504d")]:
-    #             m = (dfg_labels == cls)
-    #             if m.sum() == 0: continue
-    #             ax.hist(X[m, fi], bins=40, alpha=0.55, density=True,
-    #                     label=f"{cls} (n={m.sum()})", color=color)
-    #         ri, rj = pairs[fi]
-    #         ax.set_xlabel(f"d({ri},{rj}) [Å]")
-    #         ax.set_ylabel("density")
-    #         ax.set_title(f"#{k+1} {ri}-{rj}", fontsize=11)
-    #         if k == 0:
-    #             ax.legend(fontsize=8, frameon=False)
-    #     fig.suptitle(f"Distance distributions for top-9 SHAP features predicting {tg}, "
-    #                  f"stratified by DFG spatial class", fontsize=13)
-    #     fig.tight_layout()
-    #     fig.savefig(args.out / f"top_feature_distance_distributions_{tg}.png")
-    #     plt.close(fig)
-
-
 
     for tg in ("z0", "z1"):
         sub = fi_df[fi_df["target"] == tg].sort_values(
@@ -414,7 +345,6 @@ def main():
         top_idxs = [feature_names.index(f) for f in sub["feature"].head(9)]
         fig, axes = plt.subplots(3, 3, figsize=(12, 9))
         
-        # 预留两个列表用于存放导出的数据
         raw_export_rows = []
         hist_density_rows = []
 
@@ -428,10 +358,8 @@ def main():
                 if m.sum() == 0: 
                     continue
                 
-                # 提取当前特征在当前 DFG 构象类下的原始距离数据
                 distances = X[m, fi]
 
-                # 1. 记录原始样本级数据（最适合显著性检验/Hypothesis Testing）
                 for val in distances:
                     raw_export_rows.append({
                         "target": tg,
@@ -443,16 +371,13 @@ def main():
                         "distance_angstrom": float(val)
                     })
 
-                # 2. 画图并获取直方图的密度数据 (density & bin_edges)
                 densities, bin_edges, _ = ax.hist(
                     distances, bins=40, alpha=0.55, density=True,
                     label=f"{cls} (n={m.sum()})", color=color
                 )
 
-                # 计算每个 Bin 的中心点坐标 (Bin Centers)
                 bin_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
 
-                # 记录直方图密度坐标数据
                 for bc, den in zip(bin_centers, densities):
                     hist_density_rows.append({
                         "target": tg,
@@ -477,18 +402,16 @@ def main():
         fig.savefig(args.out / f"top_feature_distance_distributions_{tg}.png")
         plt.close(fig)
 
-        # ------------------ 保存数据到 CSV ------------------
-        # 导出 1：原始数据（强烈推荐用此文件做 t-test / Mann-Whitney U / KS-test 显著性检验）
+
         pd.DataFrame(raw_export_rows).to_csv(
             args.out / f"top_feature_raw_distances_{tg}.csv", index=False
         )
 
-        # 导出 2：直方图曲线密度数据 (d, density)
         pd.DataFrame(hist_density_rows).to_csv(
             args.out / f"top_feature_hist_density_{tg}.csv", index=False
         )
 
-    # ---------- Quantitative FI quality: top-N → DFG classifier ----------
+    #Quantitative FI quality: top-N → DFG classifier 
     print("\nTop-N feature DFG-class classifier")
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
@@ -562,7 +485,6 @@ def main():
     fig.savefig(args.out / "top_feature_classifier_curve.png")
     plt.close(fig)
 
-    # ---------- Headline numbers ----------
     print("\n========= SUMMARY =========")
     print(f"LightGBM z0 R² = {lgb_r2[0]:.3f}, z1 R² = {lgb_r2[1]:.3f}")
     print(f"Ridge    z0 R² = {ridge_r2[0]:.3f}, z1 R² = {ridge_r2[1]:.3f}")

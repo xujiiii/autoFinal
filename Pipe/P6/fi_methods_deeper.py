@@ -1,28 +1,3 @@
-"""Deeper diagnostic of why FI methods disagree on pair-level top-K.
-
-Three things are conflated in the pair-level ρ / Jaccard headline:
-  (a) FEATURE REDUNDANCY.  ~2,800 residue-pair distances are not
-      independent -- whole clusters move together.  Different methods
-      pick different *representatives* of the same cluster; pair-level
-      Jaccard punishes that even when the structural conclusion is
-      identical.
-  (b) WITHIN-METHOD NOISE.  Permutation importance with n_repeats=5 has
-      a meaningful noise floor of its own.  We measure it by bootstrap.
-  (c) GENUINE MODEL-CLASS DISAGREEMENT.  Linear vs tree models really do
-      see different things; that disagreement is structural.
-
-Outputs:
-  fi_residue_level_agreement.csv     ρ + Jaccard@K over the RESIDUE set
-                                      touched by the top-K pairs.
-  fi_within_method_stability.csv     per-method bootstrap top-K Jaccard
-                                      (within-method noise floor).
-  fi_cluster_level_agreement.csv     ρ + Jaccard@K over feature
-                                      CLUSTERS (correlation-based).
-  figures/fi_residue_vs_pair_jaccard.png
-  figures/fi_within_vs_between.png   the headline figure: within-method
-                                      noise floor vs between-method
-                                      agreement, by N.
-"""
 from __future__ import annotations
 
 import argparse
@@ -57,9 +32,7 @@ plt.rcParams.update({
 })
 
 
-# ---------------------------------------------------------------------------
 # RESIDUE-LEVEL aggregation
-# ---------------------------------------------------------------------------
 def per_residue_score(df: pd.DataFrame, col: str, top_k: int | None = None
                       ) -> pd.Series:
     """Aggregate pair-level scores to per-residue scores.
@@ -103,19 +76,10 @@ def residue_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
 
 # ---------------------------------------------------------------------------
 # WITHIN-METHOD STABILITY via bootstrap of the FI values themselves
-# ---------------------------------------------------------------------------
+
 def within_method_stability(df: pd.DataFrame, target: str,
                             n_boot: int = 20, seed: int = 25
                             ) -> pd.DataFrame:
-    """Bootstrap the FI table by features (sample n features with
-    replacement), recompute ranks, and measure within-method top-K
-    Jaccard across bootstraps.  This isolates how much of each method's
-    "disagreement" is just within-method noise.
-
-    NOTE: this is a *lower bound* on within-method noise.  Permutation
-    importance has an additional noise source (the random shuffle
-    itself) that requires re-running the model; here we only sample
-    over features."""
     rng = np.random.default_rng(seed)
     n_feat = len(df)
     rows = []
@@ -146,187 +110,16 @@ def within_method_stability(df: pd.DataFrame, target: str,
     return pd.DataFrame(rows)
 
 
-# ---------------------------------------------------------------------------
-# CLUSTER-LEVEL aggregation -- pair-level, but pairs sharing a residue
-# are collapsed into the same group.
-# ---------------------------------------------------------------------------
-# def shared_residue_cluster(
-#     df: pd.DataFrame, max_other_diff: int = 2
-# ) -> np.ndarray:
-#     """Assign every pair a cluster id using Union-Find.
-
-#     Two pairs, P1=(r1_a, r1_b) and P2=(r2_a, r2_b), belong to the same cluster iff:
-#       1. They share at least ONE exact residue (e.g., r1_a == r2_a).
-#       2. The OTHER residues are within `max_other_diff` apart (e.g., |r1_b - r2_b| <= 2).
-
-#     Parameters
-#     ----------
-#     df : pd.DataFrame
-#         Must contain 'resi_i' and 'resi_j' columns.
-#     max_other_diff : int, optional
-#         Maximum allowed sequence difference for the non-shared residue (default 2).
-#     """
-#     n = len(df)
-#     parent = np.arange(n)
-
-#     def find(x):
-#         while parent[x] != x:
-#             parent[x] = parent[parent[x]]
-#             x = parent[x]
-#         return x
-
-#     def union(a, b):
-#         ra, rb = find(a), find(b)
-#         if ra != rb:
-#             parent[ra] = rb
-
-#     # 1. 建立 "锚定残基 -> 包含 (另一个残基, pair_index)" 的映射表
-#     #    这样可以快速只在共享相同残基的 pairs 之间进行比较，效率极高 (O(N))
-#     anchor_map: dict[int, list[tuple[int, int]]] = {}
-
-#     for idx, (ri, rj) in enumerate(
-#         zip(df["resi_i"].values, df["resi_j"].values)
-#     ):
-#         r1, r2 = int(ri), int(rj)
-#         # Pair 由两个残基组成，每一个都可以作为锚定点 (Anchor)
-#         anchor_map.setdefault(r1, []).append((r2, idx))
-#         anchor_map.setdefault(r2, []).append((r1, idx))
-
-#     # 2. 遍历所有锚定残基，检查共享该残基的 pairs 之间，另一个残基差值是否 <= max_other_diff
-#     for anchor, entries in anchor_map.items():
-#         n_entries = len(entries)
-#         for i in range(n_entries):
-#             other_i, idx_i = entries[i]
-#             for j in range(i + 1, n_entries):
-#                 other_j, idx_j = entries[j]
-
-#                 # 共享了 anchor，判断另一个残基的差值是否 <= 2
-#                 if abs(other_i - other_j) <= max_other_diff:
-#                     union(idx_i, idx_j)
-
-#     return np.array([find(i) for i in range(n)])
-
-# def get_neighborhood_scores(df: pd.DataFrame, method_col: str) -> np.ndarray:
-#     """对于每个 pair (i, j)，在其严格的 4-邻域内取得分绝对值的最大值 (Max Pooling)。
-
-#     其允许的 4 个邻域 pair 严格为：
-#     - (i, j+1)
-#     - (i, j-1)
-#     - (i+1, j)
-#     - (i-1, j)
-#     """
-#     # 提取 (resi_i, resi_j) 的坐标列表与对应得分
-#     i_vals = df["resi_i"].astype(int).values
-#     j_vals = df["resi_j"].astype(int).values
-#     scores = df[method_col].abs().values
-
-#     # 建立 (i, j) -> score 的快速哈希字典
-#     pair_to_score = {(i, j): s for i, j, s in zip(i_vals, j_vals, scores)}
-
-#     smoothed_scores = []
-#     for i, j, s in zip(i_vals, j_vals, scores):
-#         # 1. 定义严格允许的 4-邻域候选（步长为 1）
-#         candidates = [(i, j + 1), (i, j - 1), (i + 1, j), (i - 1, j)]
-
-#         # 2. 检索实际存在于数据集中的邻居得分
-#         neighbor_scores = [
-#             pair_to_score[p] for p in candidates if p in pair_to_score
-#         ]
-
-#         # 3. 取自身与邻居的最大得分（相当于在 4-邻域上做了 Max-Pooling）
-#         max_val = max([s] + neighbor_scores)
-#         smoothed_scores.append(max_val)
-
-#     return np.array(smoothed_scores)
-
-
-
-
-# def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
-#     """在 4-邻域平滑后的特征上计算 Top-K Jaccard 相似度。"""
-#     cols = [m for m, _ in METHODS]
-
-#     # 为每个方法计算基于 4-邻域平滑后的得分向量
-#     cluster_score = {}
-#     for c in cols:
-#         cluster_score[c] = pd.Series(
-#             get_neighborhood_scores(df, c), index=df.index
-#         )
-
-#     rows = []
-#     K_clust = [5, 10, 20, 50]
-
-#     for a, b in combinations(cols, 2):
-#         ca, cb = cluster_score[a], cluster_score[b]
-
-#         # 计算邻域平滑后的 Spearman 相关系数
-#         rho, _ = spearmanr(ca, cb)
-
-#         row = {
-#             "target": target,
-#             "method_a": a,
-#             "method_b": b,
-#             "n_clusters": int(len(ca)),
-#             "spearman_cluster": float(rho),
-#         }
-
-#         # 计算 Top-K 的 Jaccard 重合度
-#         for k in K_clust:
-#             # 取平滑得分最高的前 K 个 pair 的索引集合
-#             ta = set(ca.nlargest(k).index)
-#             tb = set(cb.nlargest(k).index)
-
-#             row[f"jaccard_top{k}_cluster"] = len(ta & tb) / max(
-#                 len(ta | tb), 1
-#             )
-
-#         rows.append(row)
-
-#     return pd.DataFrame(rows)
-
-# def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
-#     """Same as the headline pair-level Jaccard but over CLUSTERS."""
-#     clust = shared_residue_cluster(df)
-#     cols = [m for m, _ in METHODS]
-#     # cluster score = max |score| of any pair in that cluster
-#     cluster_score = {}
-#     for c in cols:
-#         s = df[c].abs().values
-#         df_c = pd.DataFrame({"clust": clust, "score": s})
-#         cluster_score[c] = df_c.groupby("clust")["score"].max()
-#     rows = []
-#     K_clust = [5, 10, 20, 50]
-#     for a, b in combinations(cols, 2):
-#         ca, cb = cluster_score[a], cluster_score[b]
-#         common = ca.index.intersection(cb.index)
-#         rho, _ = spearmanr(ca.loc[common], cb.loc[common])
-#         row = {"target": target, "method_a": a, "method_b": b,
-#                "n_clusters": int(len(common)),
-#                "spearman_cluster": float(rho)}
-#         for k in K_clust:
-#             ta = set(ca.nlargest(k).index)
-#             tb = set(cb.nlargest(k).index)
-#             row[f"jaccard_top{k}_cluster"] = (
-#                 len(ta & tb) / max(len(ta | tb), 1))
-#         rows.append(row)
-#     return pd.DataFrame(rows)
-
-
 def is_neighbor_match(pair_a: tuple, pair_b: tuple) -> bool:
-    """判断两个残基对 (i, j) 是否满足匹配条件：
-
-    一个元素相等，另一个元素相差 <= 2。
-    """
     ai, aj = pair_a
     bi, bj = pair_b
 
-    # 情况 1: i 相同，判断 j 的差距
     if ai == bi and abs(aj - bj) <= 2:
         return True
-    # 情况 2: j 相同，判断 i 的差距
+   
     if aj == bj and abs(ai - bi) <= 2:
         return True
-    # 情况 3: 交叉相等的情况 (例如 pair_a=(i,j), pair_b=(j',i'))
+
     if ai == bj and abs(aj - bi) <= 2:
         return True
     if aj == bi and abs(ai - bj) <= 2:
@@ -336,13 +129,10 @@ def is_neighbor_match(pair_a: tuple, pair_b: tuple) -> bool:
 
 
 def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
-    """计算基于空间邻近（相差<=2）匹配规则的 Top-K Jaccard 相似度。"""
     cols = [m for m, _ in METHODS]
 
-    # 提取残基对标识
     pairs = list(zip(df["resi_i"], df["resi_j"]))
 
-    # 为每个方法根据其得分降序排列，生成 (resi_i, resi_j) 列表
     method_sorted_pairs = {}
     for c in cols:
         sorted_indices = df[c].sort_values(ascending=False).index
@@ -355,7 +145,6 @@ def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
         pairs_a_full = method_sorted_pairs[a]
         pairs_b_full = method_sorted_pairs[b]
 
-        # 计算原始得分的 Spearman 相关系数
         rho, _ = spearmanr(df[a], df[b])
 
         row = {
@@ -366,25 +155,19 @@ def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
             "spearman_cluster": float(rho),
         }
 
-        # 计算 Top-K 的模糊匹配 Jaccard 重合度
         for k in K_clust:
-            # 分别截取前 K 个特征残基对 List
             ta_list = pairs_a_full[:k]
             tb_list = pairs_b_full[:k]
-
-            # 1. 计算自定义交集大小
             intersection_count = 0
             for aa in ta_list:
                 for bb in tb_list:
                     if is_neighbor_match(aa, bb):
                         intersection_count += 1
-                        break  # 找到符合条件的 bb 后退出 b 的循环，遍历 a 的下一个元素
+                        break  
 
-            # 2. 计算并集大小 (元素去重后的集合大小)
             union_set = set(ta_list) | set(tb_list)
             union_count = len(union_set)
 
-            # 3. 计算自定义 Jaccard 相似度
             row[f"jaccard_top{k}_cluster"] = intersection_count / max(
                 union_count, 1
             )
@@ -394,11 +177,6 @@ def cluster_level_table(df: pd.DataFrame, target: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-
-
-# ---------------------------------------------------------------------------
-# Plots
-# ---------------------------------------------------------------------------
 def plot_residue_vs_pair(res_df_all: pd.DataFrame, pair_df_all: pd.DataFrame,
                          out: Path):
     """Side-by-side: pair-level Jaccard@20 vs residue-level Jaccard@10.
@@ -488,7 +266,6 @@ def plot_within_vs_between(within_df: pd.DataFrame,
 def plot_cluster_vs_pair(
     clust_df_all: pd.DataFrame, pair_df_all: pd.DataFrame, out: Path
 ):
-    """画图函数保持不变，完美兼容。"""
     pair = (
         pair_df_all.groupby(["method_a", "method_b"])["jaccard_top20"]
         .mean()
@@ -574,11 +351,9 @@ def main():
 
     from glob import glob
     import os
-    # pa_files = sorted(glob(str(args.pair_agreement_csv_glob)))
-    # pa_files = sorted(glob(str(args.out)))
+
     pattern = os.path.join(str(args.out), "fi_method_agreement_z?.csv")
 
-    # 匹配并排序
     pa_files = sorted(glob(pattern))
     if pa_files:
         pair_agreement = pd.concat([pd.read_csv(p) for p in pa_files],

@@ -1,26 +1,3 @@
-"""How do the different feature-importance methods agree?
-
-For each of the five methods (LightGBM gain, SHAP mean |abs|, permutation,
-ridge |coef|, RF impurity) and each target (z0, z1), we already have a
-score per residue pair in extended_fi_table.csv.  This script asks three
-concrete questions:
-
-  1. How well do the SCORES correlate (pairwise Spearman + Pearson)?
-  2. How well do the TOP-N PICKS agree (Jaccard at N = 10, 20, 50, 100)?
-  3. Which features are consensus top-20 (average rank across the four
-     tree-based methods)?  Are the consensus picks structurally sensible?
-
-Outputs in --out:
-  fi_method_agreement_z0.csv          Spearman / Pearson / Jaccard@N matrix
-  fi_method_agreement_z1.csv          same for z1
-  fi_consensus_top20_z0.csv           top-20 consensus features for z0
-  fi_consensus_top20_z1.csv           same for z1
-  figures/fi_method_scatter_z0.png    scatter grid: every method vs SHAP
-  figures/fi_method_scatter_z1.png    same for z1
-  figures/fi_topN_jaccard.png         Jaccard@N curves (z0 + z1)
-  figures/fi_consensus_residues.png   per-residue consensus heat-bar
-  fi_methods_agreement_section.html   HTML snippet for the report
-"""
 from __future__ import annotations
 
 import argparse
@@ -185,8 +162,7 @@ def plot_consensus_residues(df_z0: pd.DataFrame, df_z1: pd.DataFrame,
                  for m in TREE_METHODS}
         df = df.copy()
         df["mean_rank"] = pd.concat(ranks.values(), axis=1).mean(axis=1)
-        # Score per residue = sum of 1/mean_rank over the top-`top` pairs
-        # involving that residue.
+
         topdf = df.nsmallest(top, "mean_rank").copy()
         topdf["score"] = 1 / topdf["mean_rank"]
         per_resi = {}
@@ -216,175 +192,175 @@ def plot_consensus_residues(df_z0: pd.DataFrame, df_z1: pd.DataFrame,
     plt.close(fig)
 
 
-def write_html_section(agrs: dict, top_z0: pd.DataFrame,
-                       top_z1: pd.DataFrame, n_features: int,
-                       out: Path):
-    """Write a self-contained HTML snippet to splice into the report."""
-    def heat(agr, key, title, fmt="{:.2f}"):
-        cols = [m for m, _ in METHODS]
-        labels = dict(METHODS)
-        lines = ['<table class="fi-mat">']
-        lines.append('<thead><tr><th></th>'
-                     + ''.join(f'<th>{labels[c]}</th>' for c in cols)
-                     + '</tr></thead><tbody>')
-        for a in cols:
-            lines.append(f'<tr><th>{labels[a]}</th>')
-            for b in cols:
-                v = agr[key].loc[a, b] if key != "jaccard" \
-                    else agr["jaccard"][20].loc[a, b]
-                if a == b:
-                    cell = '<td style="background:#eee">—</td>'
-                else:
-                    # colour by magnitude
-                    intensity = max(0.0, min(1.0, v))
-                    r = int(255 - intensity * 80)
-                    g = int(255 - intensity * 40)
-                    b_ = int(255 - intensity * 10)
-                    cell = (f'<td style="background:rgb({r},{g},{b_})">'
-                            f'{fmt.format(v)}</td>')
-                lines.append(cell)
-            lines.append('</tr>')
-        lines.append('</tbody></table>')
-        return '\n'.join(lines)
+# def write_html_section(agrs: dict, top_z0: pd.DataFrame,
+#                        top_z1: pd.DataFrame, n_features: int,
+#                        out: Path):
+#     """Write a self-contained HTML snippet to splice into the report."""
+#     def heat(agr, key, title, fmt="{:.2f}"):
+#         cols = [m for m, _ in METHODS]
+#         labels = dict(METHODS)
+#         lines = ['<table class="fi-mat">']
+#         lines.append('<thead><tr><th></th>'
+#                      + ''.join(f'<th>{labels[c]}</th>' for c in cols)
+#                      + '</tr></thead><tbody>')
+#         for a in cols:
+#             lines.append(f'<tr><th>{labels[a]}</th>')
+#             for b in cols:
+#                 v = agr[key].loc[a, b] if key != "jaccard" \
+#                     else agr["jaccard"][20].loc[a, b]
+#                 if a == b:
+#                     cell = '<td style="background:#eee">—</td>'
+#                 else:
+#                     # colour by magnitude
+#                     intensity = max(0.0, min(1.0, v))
+#                     r = int(255 - intensity * 80)
+#                     g = int(255 - intensity * 40)
+#                     b_ = int(255 - intensity * 10)
+#                     cell = (f'<td style="background:rgb({r},{g},{b_})">'
+#                             f'{fmt.format(v)}</td>')
+#                 lines.append(cell)
+#             lines.append('</tr>')
+#         lines.append('</tbody></table>')
+#         return '\n'.join(lines)
 
-    def top_table(df, target):
-        lines = ['<table class="fi-top">',
-                 '<thead><tr><th>#</th><th>Residue pair</th>'
-                 '<th>Mean rank<br>(4 tree methods)</th>'
-                 '<th>rank gain</th><th>rank SHAP</th>'
-                 '<th>rank perm</th><th>rank RF</th></tr></thead><tbody>']
-        for k, (_, r) in enumerate(df.iterrows(), 1):
-            lines.append(
-                f"<tr><td>{k}</td>"
-                f"<td>d({int(r['resi_i'])}, {int(r['resi_j'])})</td>"
-                f"<td>{r['mean_tree_rank']:.1f}</td>"
-                f"<td>{int(r['rank_lgbm_gain'])}</td>"
-                f"<td>{int(r['rank_lgbm_shap_meanabs'])}</td>"
-                f"<td>{int(r['rank_lgbm_permutation'])}</td>"
-                f"<td>{int(r['rank_rf_impurity'])}</td></tr>")
-        lines.append('</tbody></table>')
-        return '\n'.join(lines)
+#     def top_table(df, target):
+#         lines = ['<table class="fi-top">',
+#                  '<thead><tr><th>#</th><th>Residue pair</th>'
+#                  '<th>Mean rank<br>(4 tree methods)</th>'
+#                  '<th>rank gain</th><th>rank SHAP</th>'
+#                  '<th>rank perm</th><th>rank RF</th></tr></thead><tbody>']
+#         for k, (_, r) in enumerate(df.iterrows(), 1):
+#             lines.append(
+#                 f"<tr><td>{k}</td>"
+#                 f"<td>d({int(r['resi_i'])}, {int(r['resi_j'])})</td>"
+#                 f"<td>{r['mean_tree_rank']:.1f}</td>"
+#                 f"<td>{int(r['rank_lgbm_gain'])}</td>"
+#                 f"<td>{int(r['rank_lgbm_shap_meanabs'])}</td>"
+#                 f"<td>{int(r['rank_lgbm_permutation'])}</td>"
+#                 f"<td>{int(r['rank_rf_impurity'])}</td></tr>")
+#         lines.append('</tbody></table>')
+#         return '\n'.join(lines)
 
-    html = f"""
-<section>
-  <h2>How do the feature-importance methods agree?</h2>
-  <p>Different importance measures probe different aspects of a model and
-  do not have to give the same answer. Here we directly compare four
-  measures &mdash; <strong>LightGBM gain</strong> (how often a feature is
-  used to split, weighted by the split's MSE reduction),
-  <strong>SHAP mean|abs|</strong> (Shapley-value attribution from the same
-  LightGBM model), <strong>permutation importance</strong> (R<sup>2</sup>
-  drop after shuffling that feature on test &mdash; the "substitute with
-  average" baseline), and <strong>Random Forest impurity</strong>
-  (mean impurity decrease over 300 RF trees).</p>
+#     html = f"""
+# <section>
+#   <h2>How do the feature-importance methods agree?</h2>
+#   <p>Different importance measures probe different aspects of a model and
+#   do not have to give the same answer. Here we directly compare four
+#   measures &mdash; <strong>LightGBM gain</strong> (how often a feature is
+#   used to split, weighted by the split's MSE reduction),
+#   <strong>SHAP mean|abs|</strong> (Shapley-value attribution from the same
+#   LightGBM model), <strong>permutation importance</strong> (R<sup>2</sup>
+#   drop after shuffling that feature on test &mdash; the "substitute with
+#   average" baseline), and <strong>Random Forest impurity</strong>
+#   (mean impurity decrease over 300 RF trees).</p>
 
-  <p>All four are evaluated on the same train/test split, over
-  <strong>{n_features:,} residue-pair features</strong>, separately for the
-  two latent axes z0 and z1.</p>
+#   <p>All four are evaluated on the same train/test split, over
+#   <strong>{n_features:,} residue-pair features</strong>, separately for the
+#   two latent axes z0 and z1.</p>
 
-  <h3>Pairwise rank correlation (Spearman &rho;)</h3>
-  <p>How well does the full ranking of one method match the full ranking
-  of another? <strong>1.0 = identical ranking, 0 = independent.</strong>
-  Cells are coloured by magnitude.</p>
-  <div class="grid">
-    <figure>
-      <figcaption><strong>z0:</strong></figcaption>
-      {heat(agrs['z0'], 'spearman', 'Spearman z0')}
-    </figure>
-    <figure>
-      <figcaption><strong>z1:</strong></figcaption>
-      {heat(agrs['z1'], 'spearman', 'Spearman z1')}
-    </figure>
-  </div>
+#   <h3>Pairwise rank correlation (Spearman &rho;)</h3>
+#   <p>How well does the full ranking of one method match the full ranking
+#   of another? <strong>1.0 = identical ranking, 0 = independent.</strong>
+#   Cells are coloured by magnitude.</p>
+#   <div class="grid">
+#     <figure>
+#       <figcaption><strong>z0:</strong></figcaption>
+#       {heat(agrs['z0'], 'spearman', 'Spearman z0')}
+#     </figure>
+#     <figure>
+#       <figcaption><strong>z1:</strong></figcaption>
+#       {heat(agrs['z1'], 'spearman', 'Spearman z1')}
+#     </figure>
+#   </div>
 
-  <h3>Top-20 pick overlap (Jaccard)</h3>
-  <p>The full ranking is usually less interesting than which features
-  actually make it into the top-N you would use downstream. Jaccard@20 =
-  |A &cap; B| / |A &cup; B| over the top-20 picks of each method
-  (so 1.0 = same 20 features, 0 = totally disjoint).</p>
-  <div class="grid">
-    <figure>
-      <figcaption><strong>z0:</strong></figcaption>
-      {heat(agrs['z0'], 'jaccard', 'Jaccard top-20 z0')}
-    </figure>
-    <figure>
-      <figcaption><strong>z1:</strong></figcaption>
-      {heat(agrs['z1'], 'jaccard', 'Jaccard top-20 z1')}
-    </figure>
-  </div>
+#   <h3>Top-20 pick overlap (Jaccard)</h3>
+#   <p>The full ranking is usually less interesting than which features
+#   actually make it into the top-N you would use downstream. Jaccard@20 =
+#   |A &cap; B| / |A &cup; B| over the top-20 picks of each method
+#   (so 1.0 = same 20 features, 0 = totally disjoint).</p>
+#   <div class="grid">
+#     <figure>
+#       <figcaption><strong>z0:</strong></figcaption>
+#       {heat(agrs['z0'], 'jaccard', 'Jaccard top-20 z0')}
+#     </figure>
+#     <figure>
+#       <figcaption><strong>z1:</strong></figcaption>
+#       {heat(agrs['z1'], 'jaccard', 'Jaccard top-20 z1')}
+#     </figure>
+#   </div>
 
-  <div class="grid single">
-    <figure>
-      <img src="figures/fi_topN_jaccard.png" alt="Top-N Jaccard curves">
-      <figcaption><strong>Top-N pick agreement as a function of N.</strong>
-      Curves averaged over z0 and z1. The LightGBM gain &harr; SHAP curve
-      sits near 0.9 across all N &mdash; expected, they come from the
-      same tree. The other tree-based pairs (gain &harr; permutation,
-      gain &harr; RF, SHAP &harr; RF) climb from ~0.1 at N=10 to
-      ~0.4&ndash;0.5 at N=200: the methods do not agree on the very top
-      picks, but they converge on a shared larger set as N grows.</figcaption>
-    </figure>
-  </div>
+#   <div class="grid single">
+#     <figure>
+#       <img src="figures/fi_topN_jaccard.png" alt="Top-N Jaccard curves">
+#       <figcaption><strong>Top-N pick agreement as a function of N.</strong>
+#       Curves averaged over z0 and z1. The LightGBM gain &harr; SHAP curve
+#       sits near 0.9 across all N &mdash; expected, they come from the
+#       same tree. The other tree-based pairs (gain &harr; permutation,
+#       gain &harr; RF, SHAP &harr; RF) climb from ~0.1 at N=10 to
+#       ~0.4&ndash;0.5 at N=200: the methods do not agree on the very top
+#       picks, but they converge on a shared larger set as N grows.</figcaption>
+#     </figure>
+#   </div>
 
-  <h3>Per-feature rank scatter, all methods vs SHAP</h3>
-  <div class="grid">
-    <figure>
-      <img src="figures/fi_method_scatter_z0.png" alt="Per-feature scatter z0">
-      <figcaption><strong>z0 &mdash; each panel: that method's rank
-      (y) vs SHAP rank (x).</strong> LightGBM gain and SHAP land on the
-      diagonal at the top. Permutation and RF agree with SHAP on the
-      top picks but spread more widely below the top ~50.</figcaption>
-    </figure>
-    <figure>
-      <img src="figures/fi_method_scatter_z1.png" alt="Per-feature scatter z1">
-      <figcaption><strong>z1.</strong> Same pattern.</figcaption>
-    </figure>
-  </div>
+#   <h3>Per-feature rank scatter, all methods vs SHAP</h3>
+#   <div class="grid">
+#     <figure>
+#       <img src="figures/fi_method_scatter_z0.png" alt="Per-feature scatter z0">
+#       <figcaption><strong>z0 &mdash; each panel: that method's rank
+#       (y) vs SHAP rank (x).</strong> LightGBM gain and SHAP land on the
+#       diagonal at the top. Permutation and RF agree with SHAP on the
+#       top picks but spread more widely below the top ~50.</figcaption>
+#     </figure>
+#     <figure>
+#       <img src="figures/fi_method_scatter_z1.png" alt="Per-feature scatter z1">
+#       <figcaption><strong>z1.</strong> Same pattern.</figcaption>
+#     </figure>
+#   </div>
 
-  <h3>Consensus top-20 picks (mean rank over the 4 tree-based methods)</h3>
-  <p>For each residue pair, average its rank across LightGBM gain, SHAP,
-  permutation, and RF. The 20 features with the smallest mean rank are
-  the ones <em>every</em> tree-based method agrees are important &mdash;
-  these are the safest residue pairs to call out.</p>
-  <div class="grid">
-    <figure>
-      <figcaption><strong>z0 top 20</strong></figcaption>
-      {top_table(top_z0, 'z0')}
-    </figure>
-    <figure>
-      <figcaption><strong>z1 top 20</strong></figcaption>
-      {top_table(top_z1, 'z1')}
-    </figure>
-  </div>
+#   <h3>Consensus top-20 picks (mean rank over the 4 tree-based methods)</h3>
+#   <p>For each residue pair, average its rank across LightGBM gain, SHAP,
+#   permutation, and RF. The 20 features with the smallest mean rank are
+#   the ones <em>every</em> tree-based method agrees are important &mdash;
+#   these are the safest residue pairs to call out.</p>
+#   <div class="grid">
+#     <figure>
+#       <figcaption><strong>z0 top 20</strong></figcaption>
+#       {top_table(top_z0, 'z0')}
+#     </figure>
+#     <figure>
+#       <figcaption><strong>z1 top 20</strong></figcaption>
+#       {top_table(top_z1, 'z1')}
+#     </figure>
+#   </div>
 
-  <div class="grid single">
-    <figure>
-      <img src="figures/fi_consensus_residues.png" alt="Per-residue consensus">
-      <figcaption><strong>Per-residue consensus score</strong> (sum of
-      1 / mean-rank over the top 50 consensus pairs touching each residue).
-      The same handful of residues &mdash; &alpha;C (499&ndash;508),
-      gatekeeper/hinge (528&ndash;535), HRD/catalytic loop (574&ndash;575)
-      and pre-DFG (590) &mdash; light up for both z0 and z1, with
-      complementary emphasis (z0 leans more on &alpha;C and pre-DFG; z1
-      on hinge and catalytic loop). This is the structurally meaningful
-      readout of the analysis.</figcaption>
-    </figure>
-  </div>
+#   <div class="grid single">
+#     <figure>
+#       <img src="figures/fi_consensus_residues.png" alt="Per-residue consensus">
+#       <figcaption><strong>Per-residue consensus score</strong> (sum of
+#       1 / mean-rank over the top 50 consensus pairs touching each residue).
+#       The same handful of residues &mdash; &alpha;C (499&ndash;508),
+#       gatekeeper/hinge (528&ndash;535), HRD/catalytic loop (574&ndash;575)
+#       and pre-DFG (590) &mdash; light up for both z0 and z1, with
+#       complementary emphasis (z0 leans more on &alpha;C and pre-DFG; z1
+#       on hinge and catalytic loop). This is the structurally meaningful
+#       readout of the analysis.</figcaption>
+#     </figure>
+#   </div>
 
-  <div class="note">
-    <strong>Takeaway.</strong>
-    The four methods agree on a compact consensus set (~10&ndash;20
-    residue pairs centred on &alpha;C, hinge, HRD and pre-DFG).
-    LightGBM gain &harr; SHAP agreement is near-perfect (they share the
-    same model), and gain &harr; permutation &harr; RF agree moderately
-    and converge as you take more features. Reporting the consensus
-    top-20 (above) instead of any single method's top-20 is the
-    conservative choice for downstream work.
-  </div>
-</section>
-"""
-    (out / "fi_methods_agreement_section.html").write_text(html,
-                                                            encoding="utf-8")
+#   <div class="note">
+#     <strong>Takeaway.</strong>
+#     The four methods agree on a compact consensus set (~10&ndash;20
+#     residue pairs centred on &alpha;C, hinge, HRD and pre-DFG).
+#     LightGBM gain &harr; SHAP agreement is near-perfect (they share the
+#     same model), and gain &harr; permutation &harr; RF agree moderately
+#     and converge as you take more features. Reporting the consensus
+#     top-20 (above) instead of any single method's top-20 is the
+#     conservative choice for downstream work.
+#   </div>
+# </section>
+# """
+#     (out / "fi_methods_agreement_section.html").write_text(html,
+#                                                             encoding="utf-8")
 
 
 def main():
@@ -428,8 +404,8 @@ def main():
     plot_consensus_residues(df_z0, df_z1, fig_dir)
 
     n_features = (full["target"] == "z0").sum()
-    write_html_section(agrs, consensus["z0"], consensus["z1"],
-                       n_features, args.out)
+    # write_html_section(agrs, consensus["z0"], consensus["z1"],
+    #                    n_features, args.out)
 
     # Print headline summary
     print("\n=== HEADLINE SUMMARY ===")
