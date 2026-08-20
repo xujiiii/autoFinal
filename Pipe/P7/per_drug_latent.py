@@ -177,14 +177,6 @@ def style():
 
 
 def parse_kincore_ccd(fasta_path: Path) -> dict[str, set[str]]:
-    """chain_key (upper) -> set of CCDs of all bound ligands.
-
-    Kincore stores the ligand column as ``CCD:authnum`` for single
-    ligands and ``CCD1:a,CCD2:b,...`` for chains with multiple bound
-    ligands.  We return the *set* of distinct CCDs per chain so a
-    chain bound to both, say, imatinib and ATP appears in both
-    drug analyses below.
-    """
     out: dict[str, set[str]] = {}
     with fasta_path.open() as f:
         for line in f:

@@ -319,12 +319,7 @@ def plot_cluster_vs_pair(
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--extended-fi-csv", required=True, type=Path)
-    ap.add_argument("--pair-agreement-csv-glob",
-                    default="../../manuscript_draft/data/v9_lgbm_shap/"
-                            "fi_methods_agreement/"
-                            "fi_method_agreement_z?.csv",
-                    help="Glob for the pair-level Jaccard CSVs from the "
-                         "earlier analysis")
+
     ap.add_argument("--out", required=True, type=Path)
     ap.add_argument("--n-boot", type=int, default=20)
     args = ap.parse_args()
