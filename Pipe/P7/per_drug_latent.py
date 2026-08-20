@@ -300,7 +300,7 @@ def main():
           f"(used in figures): {len(summary_plot)}/{len(summary)}")
 
     #Figure 1: per-drug overlay on latent
-    fig, ax = plt.subplots(figsize=(9, 8))
+    fig, ax = plt.subplots(figsize=(10, 8))
     ax.scatter(df["z0"], df["z1"], s=4, alpha=0.10,
                color="0.7", linewidths=0, zorder=1,
                label=f"all chains (n={len(df):,})")
@@ -341,19 +341,24 @@ def main():
         ax.scatter([c[0]], [c[1]], marker="X", s=140,
                    color=info["colour"], edgecolor="white",
                    linewidth=1.5, zorder=5)
-    ax.set_xlabel("z0")
-    ax.set_ylabel("z1")
+    ax.set_xlabel("z0",fontsize=14)
+    ax.set_ylabel("z1",fontsize=14)
     ax.set_title("Per-drug latent footprints on latent space", loc="left")
-    ax.legend(loc="upper left", fontsize=8, markerscale=0.9,
-              bbox_to_anchor=(1.01, 1.0))
-    fig.tight_layout()
+    fig.legend(
+        *ax.get_legend_handles_labels(),
+        loc="center left",
+        bbox_to_anchor=(0.76, 0.5),
+        fontsize=14,
+        markerscale=1.3
+    )
+    fig.subplots_adjust(right=0.72)
     for ext in ("png", "pdf"):
         fig.savefig(args.out_dir / f"per_drug_latent_overlay.{ext}",
                     dpi=600, bbox_inches="tight")
     plt.close(fig)
     print(f"Wrote per_drug_latent_overlay.png/pdf")
 
-    # igure 2: dispersion bar chart
+    # Figure 2: dispersion bar chart
     fig, ax = plt.subplots(figsize=(8, 5))
     summary_sorted = summary_plot.sort_values("dispersion", ascending=True)
     colours = [DRUG_MAP[c]["colour"] for c in summary_sorted["ccd"]]
@@ -363,10 +368,10 @@ def main():
     for i, (_, r) in enumerate(summary_sorted.iterrows()):
         ax.text(r["dispersion"] + 1.0, i,
                 f" n={r['n_chains']}, {r['n_kinases']} kinases",
-                va="center", fontsize=9, color="0.25")
+                va="center", fontsize=14, color="0.25")
     ax.set_yticks(range(len(summary_sorted)))
-    ax.set_yticklabels(labels, fontsize=10)
-    ax.set_xlabel(r"latent dispersion (mean Euclidean distance to centroid)")
+    ax.set_yticklabels(labels, fontsize=14)
+    ax.set_xlabel(r"latent dispersion (mean Euclidean distance to centroid)",fontsize=14)
     ax.set_title("Per-drug compactness in latent (lower = tighter)",
                  loc="left")
     fig.tight_layout()
@@ -394,8 +399,8 @@ def main():
     labels = [f"{r['name']} ({r['ccd']}, {r['drug_class']})"
               for _, r in summary_by_class.iterrows()]
     ax.set_yticks(y)
-    ax.set_yticklabels(labels, fontsize=10)
-    ax.set_xlabel("fraction of chains")
+    ax.set_yticklabels(labels, fontsize=14)
+    ax.set_xlabel("fraction of chains",fontsize=14)
     ax.set_xlim(0, 1.0)
     ax.set_title("Per-drug DFG-spatial composition", loc="left")
     ax.legend(loc="lower right", fontsize=10)
