@@ -1,22 +1,3 @@
-"""Train LightGBM on non-loop conserved Cα-Cα distances → predict v9 AE latent.
-
-Then compute feature importance (gain + split) and SHAP values, and
-produce figures suitable for the manuscript HTML report.
-
-Output figures (all under ``--out/figures/``):
-  - lgbm_predicted_vs_actual.png    — scatter of predicted vs actual z0, z1
-  - lgbm_top_features_z0.png        — top 20 features by gain for z0
-  - lgbm_top_features_z1.png        — top 20 features by gain for z1
-  - lgbm_shap_summary_z0.png        — SHAP beeswarm for z0 (top 15)
-  - lgbm_shap_summary_z1.png        — SHAP beeswarm for z1
-  - lgbm_shap_bar_z0.png            — SHAP mean |abs| bar for top 20, z0
-  - lgbm_shap_bar_z1.png            — same for z1
-  - lgbm_residue_importance.png     — per-BRAF-residue aggregated SHAP (sum |abs|)
-  - lgbm_feature_pairs_top.csv      — top-200 features by combined |SHAP|
-
-Plus model_comparison.csv with full cross-validated R² breakdown.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -75,15 +56,11 @@ def build_distance_matrix(conserved_csv: Path, manifest_csv: Path,
 
 
     ref["braf_resi"] = ref["braf_resi"].astype(int)    
-    # n_flank = 40  # 侧翼窗口长度
 
-    # 1. 定义两个侧翼区间条件
+    # Condition to choose residue
     c1_n_flank = (ref["braf_resi"] < dfg_resi) & (ref["braf_resi"] >= dfg_resi - n_flank)
     c2_c_flank = (ref["braf_resi"] > ape_resi_floor) & (ref["braf_resi"] <= ape_resi_floor + n_flank)
-
-    # 2. 取并集（同时保留 N 端侧翼和 C 端侧翼，剔除活化环本体及远处骨架）
     ref = ref[c1_n_flank | c2_c_flank]
-    
     braf_resis = sorted(ref["braf_resi"].unique().tolist())
     
     print(f"Reference conserved non-loop BRAF residues: {len(braf_resis)}")
@@ -126,12 +103,6 @@ def build_distance_matrix(conserved_csv: Path, manifest_csv: Path,
           f"{keep.sum()}/{len(pair_list)}")
     X = X[:, keep]
     pair_list = [p for p, k in zip(pair_list, keep) if k]
-    # Per-chain imputation fraction (BEFORE filling), so callers can drop
-    # chains whose conserved-distance features are mostly mean-imputed.
-    # Such chains have a FoldMason table entry but their mapped residues
-    # don't actually cover the conserved non-loop pairs; left in, they
-    # collapse to the centroid prediction and form a horizontal band in
-    # the predicted-vs-actual scatter (residual form of the v9 "stripe").
     frac_imputed = np.isnan(X).mean(axis=1)
     col_mean = np.nanmean(X, axis=0)
     inds = np.where(np.isnan(X))
@@ -235,13 +206,13 @@ def main():
     combined_r2 = 1 - ss_res / ss_tot
     print(f"Combined R²: {combined_r2:.3f}")
 
-    # ---------- Export test predictions (for external/MATLAB plotting) ----------
+    # Export test predictions (for external/MATLAB plotting)
     pd.DataFrame({
         "actual_z0": Y_test[:, 0], "pred_z0": preds[:, 0],
         "actual_z1": Y_test[:, 1], "pred_z1": preds[:, 1],
     }).to_csv(args.out / "lgbm_test_predictions.csv", index=False)
 
-    # ---------- Predicted vs actual scatter ----------
+    #  Predicted vs actual scatter 
     fig, axes = plt.subplots(1, 2, figsize=(11, 5))
     for j, name in enumerate(["z0", "z1"]):
         axes[j].scatter(Y_test[:, j], preds[:, j], s=10, alpha=0.55,
@@ -261,7 +232,7 @@ def main():
     fig.savefig(fig_dir / "lgbm_predicted_vs_actual.pdf")
     plt.close(fig)
 
-    # ---------- Built-in gain importance ----------
+    #  Built-in gain importance
     rows = []
     for name, m in models.items():
         imps = m.booster_.feature_importance(importance_type="gain")
@@ -291,7 +262,7 @@ def main():
         fig.savefig(fig_dir / f"lgbm_top_features_{name}.pdf")
         plt.close(fig)
 
-    # ---------- SHAP ----------
+    #  SHAP 
     import shap
     print("\nComputing SHAP values on test set")
     shap_values = {}
@@ -344,7 +315,7 @@ def main():
         plt.savefig(fig_dir / f"lgbm_shap_summary_{name}.pdf")
         plt.close()
 
-    # ---------- Per-residue aggregated SHAP ----------
+    # Per-residue aggregated SHAP 
     # Each residue's importance = sum over all pairs it participates in
     all_resis = sorted({r for p in pairs for r in p})
     n_res = len(all_resis)

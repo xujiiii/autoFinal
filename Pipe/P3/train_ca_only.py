@@ -1,18 +1,3 @@
-"""Train molearn Small_AutoEncoder on the v9 Cα-only dataset.
-
-Identical to ``train_v4_foldingnet.py`` except for the atom selection
-(``["CA"]`` instead of ``["CA","C","N","CB","O"]``) — matches the
-meyresearch/BRAF published workflow's
-``AutoencoderWorkflow.prepare_data(atom_selection=['CA'])``.
-
-Usage::
-
-    python train_v9_ca_only.py \\
-        --combined-pdb /tmp/v9_ca/combined_v9_ca.pdb \\
-        --out         /tmp/v9_ca/run \\
-        --max-cycles 8 --epochs-per-cycle 32 --batch-size 8
-"""
-
 from __future__ import annotations
 import pkg_resources
 import argparse

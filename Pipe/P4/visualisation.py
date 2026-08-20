@@ -27,7 +27,7 @@ def plot_landscape(csv_path: Path, error_csv: Path, output_path: Path | None = N
             df.rename(columns={int(col): col}, inplace=True)
 
     if not all(col in df.columns for col in required_cols):
-        raise ValueError(f"CSV 文件必须包含列 '0' 和 '1'，当前包含列: {list(df.columns)}")
+        raise ValueError(f"CSV must have '0' and '1'columns, all columns now: {list(df.columns)}")
 
 
     fig, ax = plt.subplots(figsize=(9, 6), dpi=300)

@@ -10,7 +10,6 @@ from molearn.data import PDBData
 from molearn.models.small_foldingnet import Small_AutoEncoder
 
 
-
 def load_combined_pdb(path: Path) -> np.ndarray:
     """Return (n_models, n_atoms, 3) for all CA atoms."""
     models = []
