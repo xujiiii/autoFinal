@@ -415,9 +415,8 @@ def main():
     print("\nTop-N feature DFG-class classifier")
     from sklearn.linear_model import LogisticRegression
     from sklearn.pipeline import make_pipeline
-
-
     from sklearn.metrics import balanced_accuracy_score
+    
     valid = (dfg_labels != "None") & (dfg_labels != "")
     Xv = X[valid]; yv = dfg_labels[valid]
     # split
