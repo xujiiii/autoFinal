@@ -49,8 +49,8 @@ def plot_landscape(csv_path: Path, error_csv: Path, output_path: Path | None = N
     cbar.ax.tick_params(labelsize=10)
 
  
-    ax.set_xlabel("Latent vector z0", fontsize=12, fontweight="bold")
-    ax.set_ylabel("Latent vector z1", fontsize=12, fontweight="bold")
+    ax.set_xlabel("Latent vector z0", fontsize=14, fontweight="bold")
+    ax.set_ylabel("Latent vector z1", fontsize=14, fontweight="bold")
     
     chart_title = title if title else f"Latent Space Landscape ({csv_path.name})"
     ax.set_title(chart_title, fontsize=14, pad=12, fontweight="bold")
